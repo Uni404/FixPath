@@ -1,0 +1,65 @@
+const pool = require('../db');
+
+const createReport = async (req, res) => {
+  const { userId, deviceId, problemDescription, symptomIds, mediaUrl } = req.body;
+
+  if (
+    !userId ||
+    !deviceId ||
+    !problemDescription ||
+    !Array.isArray(symptomIds) ||
+    symptomIds.length === 0
+  ) {
+    return res.status(400).json({
+      message: 'userId, deviceId, problemDescription, and at least one symptomId are required.'
+    });
+  }
+
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [reportResult] = await connection.query(
+      `
+      INSERT INTO PROBLEM_REPORT
+      (UserID, DeviceID, ProblemDescription, DetectedRiskLevel, Status, MediaURL)
+      VALUES (?, ?, ?, ?, ?, ?)
+      `,
+      [userId, deviceId, problemDescription, null, 'submitted', mediaUrl || null]
+    );
+
+    const reportId = reportResult.insertId;
+
+    for (const symptomId of symptomIds) {
+      await connection.query(
+        `
+        INSERT INTO PROBLEM_REPORT_SYMPTOM
+        (ReportID, SymptomID, Notes)
+        VALUES (?, ?, ?)
+        `,
+        [reportId, symptomId, null]
+      );
+    }
+
+    await connection.commit();
+
+    return res.status(201).json({
+      message: 'Problem report created successfully.',
+      reportId
+    });
+  } catch (error) {
+    await connection.rollback();
+
+    return res.status(500).json({
+      message: 'Failed to create problem report.',
+      error: error.message
+    });
+  } finally {
+    connection.release();
+  }
+};
+
+module.exports = {
+  createReport
+};

@@ -13,6 +13,7 @@ console.log('ENV CHECK:', {
 });
 
 const healthRoute = require('./routes/health');
+const reportRoute = require('./routes/report');
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use(express.json());
 app.use(morgan('dev'));
 
 app.use('/health', healthRoute);
+app.use('/report', reportRoute);
 
 const PORT = process.env.PORT || 5000;
 
