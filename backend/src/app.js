@@ -14,6 +14,11 @@ console.log('ENV CHECK:', {
 
 const healthRoute = require('./routes/health');
 const reportRoute = require('./routes/report');
+const diagnoseRoute = require('./routes/diagnose');
+const consultationRoute = require('./routes/consultation');
+const replacementRoute = require('./routes/replacement');
+const deviceRoute = require('./routes/device');
+const symptomRoute = require('./routes/symptom');
 
 const app = express();
 
@@ -21,8 +26,15 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 app.use('/health', healthRoute);
 app.use('/report', reportRoute);
+app.use('/diagnose', diagnoseRoute);
+app.use('/consultation', consultationRoute);
+app.use('/replacement', replacementRoute);
+app.use('/devices', deviceRoute);
+app.use('/symptoms', symptomRoute);
 
 const PORT = process.env.PORT || 5000;
 
