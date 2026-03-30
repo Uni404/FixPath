@@ -55,6 +55,7 @@ const createConsultation = async (req, res) => {
             return res.status(200).json({
                 message: 'An active consultation already exists for this diagnosis result.',
                 consultationId: existing.ConsultationID,
+                consultationStatus: existing.ConsultationStatus,
                 expert: {
                     expertId: existing.ExpertID,
                     expertName: existing.ExpertName,
@@ -111,6 +112,7 @@ const createConsultation = async (req, res) => {
         return res.status(201).json({
             message: 'Consultation created successfully.',
             consultationId: insertResult.insertId,
+            consultationStatus:'pending',
             expert: {
                 expertId: expert.ExpertID,
                 expertName: expert.ExpertName,
@@ -172,12 +174,12 @@ const updateConsultationStatus = async (req, res) => {
 };
 
 const getConsultationById = async (req, res) => {
-  const { id } = req.params;
+    const { id } = req.params;
 
-  try {
-    const [rows] = await pool.query(
-      `
-      SELECT
+    try {
+        const [rows] = await pool.query(
+            `
+        SELECT
         c.ConsultationID,
         c.ResultID,
         c.UserID,
@@ -188,34 +190,133 @@ const getConsultationById = async (req, res) => {
         c.ConsultationDate,
         c.ConsultationNotes,
         c.MeetingLink,
+
         e.ExpertName,
         e.ServiceType,
         e.Phone,
         e.ExpertEmail,
         e.ExpertRating,
-        e.AvailabilityStatus
+        e.AvailabilityStatus,
+
+        dr.ReportID,
+        dr.Outcome,
+        dr.RiskLevel,
+        dr.Recommendation,
+
+        pr.ProblemDescription,
+        pr.ReportDate,
+
+        d.DeviceID,
+        d.DeviceName,
+
+        dc.CategoryID,
+        dc.CategoryName
+
       FROM CONSULTATION c
       JOIN EXPERT e ON c.ExpertID = e.ExpertID
+      JOIN DECISION_RESULT dr ON c.ResultID = dr.ResultID
+      JOIN PROBLEM_REPORT pr ON dr.ReportID = pr.ReportID
+      JOIN DEVICE d ON pr.DeviceID = d.DeviceID
+      JOIN DEVICE_CATEGORY dc ON d.CategoryID = dc.CategoryID
       WHERE c.ConsultationID = ?
       `,
-      [id]
-    );
+            [id]
+        );
 
-    if (rows.length === 0) {
-      return res.status(404).json({
-        message: 'Consultation not found.'
-      });
+        if (rows.length === 0) {
+            return res.status(404).json({
+                message: 'Consultation not found.'
+            });
+        }
+
+        const consultation = rows[0];
+
+        // 查 report 关联的媒体
+        const [mediaRows] = await pool.query(
+            `
+      SELECT
+        MediaID,
+        MediaType,
+        MediaURL,
+        UploadedTime
+      FROM REPORT_MEDIA
+      WHERE ReportID = ?
+      ORDER BY UploadedTime DESC
+      `,
+            [consultation.ReportID]
+        );
+
+        consultation.media = mediaRows;
+
+        return res.json({
+            message: 'Consultation retrieved successfully.',
+            consultation
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: 'Failed to retrieve consultation.',
+            error: error.message
+        });
     }
-
-    return res.json({
-      message: 'Consultation retrieved successfully.',
-      consultation: rows[0]
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: 'Failed to retrieve consultation.',
-      error: error.message
-    });
-  }
 };
-module.exports = {createConsultation, updateConsultationStatus, getConsultationById};
+
+const getAllConsultations = async (req, res) => {
+    try {
+        const [rows] = await pool.query(`
+      SELECT 
+        c.ConsultationID,
+        c.ResultID,
+        c.UserID,
+        c.RequestType,
+        c.ConsultationStatus,
+        c.RequestDate,
+        e.ExpertName
+      FROM CONSULTATION c
+      JOIN EXPERT e ON c.ExpertID = e.ExpertID
+      ORDER BY c.RequestDate DESC
+    `);
+
+        return res.json(rows);
+    } catch (error) {
+        return res.status(500).json({
+            message: 'Failed to fetch consultations.',
+            error: error.message
+        });
+    }
+};
+
+const getConsultationsByExpertId = async (req, res) => {
+    const { expertId } = req.params;
+
+    try {
+        const [rows] = await pool.query(
+            `
+      SELECT 
+        c.ConsultationID,
+        c.ResultID,
+        c.UserID,
+        c.RequestType,
+        c.ConsultationStatus,
+        c.RequestDate,
+        c.ConsultationDate,
+        c.ConsultationNotes,
+        c.MeetingLink,
+        e.ExpertName
+      FROM CONSULTATION c
+      JOIN EXPERT e ON c.ExpertID = e.ExpertID
+      WHERE c.ExpertID = ?
+      ORDER BY c.RequestDate DESC
+      `,
+            [expertId]
+        );
+
+        return res.json(rows);
+    } catch (error) {
+        return res.status(500).json({
+            message: 'Failed to fetch expert consultations.',
+            error: error.message
+        });
+    }
+};
+
+module.exports = { createConsultation, updateConsultationStatus, getConsultationById, getAllConsultations, getConsultationsByExpertId };

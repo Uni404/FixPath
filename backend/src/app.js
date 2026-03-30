@@ -19,6 +19,9 @@ const consultationRoute = require('./routes/consultation');
 const replacementRoute = require('./routes/replacement');
 const deviceRoute = require('./routes/device');
 const symptomRoute = require('./routes/symptom');
+const authRoute = require('./routes/auth');
+const expertRoute = require('./routes/expert');
+const userRoute = require('./routes/user');
 
 const app = express();
 
@@ -35,6 +38,9 @@ app.use('/consultation', consultationRoute);
 app.use('/replacement', replacementRoute);
 app.use('/devices', deviceRoute);
 app.use('/symptoms', symptomRoute);
+app.use('/auth', authRoute);
+app.use('/expert', expertRoute);
+app.use('/user', userRoute);
 
 const PORT = process.env.PORT || 5000;
 

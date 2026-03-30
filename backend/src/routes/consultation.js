@@ -1,9 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { createConsultation, updateConsultationStatus, getConsultationById } = require('../controllers/consultationController');
+const { createConsultation, updateConsultationStatus, getConsultationById, getAllConsultations, getConsultationsByExpertId } = require('../controllers/consultationController');
 
-router.get('/:id', getConsultationById);
-router.patch('/:id/status', updateConsultationStatus);
+router.get('/', getAllConsultations);
 router.post('/', createConsultation);
+router.get('/expert/:expertId', getConsultationsByExpertId);
+router.patch('/:id/status', updateConsultationStatus);
+router.get('/:id', getConsultationById);
+
 
 module.exports = router;

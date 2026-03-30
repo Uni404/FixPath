@@ -20,6 +20,9 @@ export const diagnoseReport = (reportId) =>
 export const createConsultation = (data) =>
     api.post('/consultation', data);
 
+export const getAllConsultations = () =>
+    api.get('/consultation');
+
 export const getConsultationById = (consultationId) =>
     api.get(`/consultation/${consultationId}`);
 
@@ -40,5 +43,36 @@ export const getDevicesByCategory = (categoryId) =>
 // Symptom suggestion
 export const suggestSymptoms = (data) =>
     api.post('/symptoms/suggest', data);
+
+// Login
+export const userLogin = (data) =>
+    api.post('/auth/user-login', data);
+
+export const expertLogin = (data) =>
+    api.post('/auth/expert-login', data);
+
+export const getExpertConsultations = (expertId) =>
+    api.get(`/consultation/expert/${expertId}`);
+
+export const getExpertProfileById = (expertId) =>
+    api.get(`/expert/${expertId}/profile`);
+
+export const updateExpertProfile = (expertId, data) =>
+    api.patch(`/expert/${expertId}/profile`, data);
+
+export const getUserProfileById = (userId) =>
+    api.get(`/user/${userId}/profile`);
+
+export const updateUserProfile = (userId, data) =>
+    api.patch(`/user/${userId}/profile`, data);
+
+export const getUserReports = (userId) =>
+    api.get(`/user/${userId}/reports`);
+
+export const getUserResults = (userId) =>
+    api.get(`/user/${userId}/results`);
+
+export const getUserConsultations = (userId) =>
+    api.get(`/user/${userId}/consultations`);
 
 export default api;

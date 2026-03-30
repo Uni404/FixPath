@@ -6,6 +6,7 @@ CREATE TABLE EXPERT (
     ServiceType VARCHAR(100),
     Phone VARCHAR(50),
     ExpertEmail VARCHAR(150),
+    ExpertPasswordHarsh VARCHAR(255),
     ExpertRating DECIMAL(2,1),
     AvailabilityStatus VARCHAR(50) NOT NULL
 );
