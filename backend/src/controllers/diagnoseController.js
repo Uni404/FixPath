@@ -2,47 +2,54 @@ const pool = require('../db');
 const { analyzeReport } = require('../services/diagnosisEngine');
 
 const diagnoseReport = async (req, res) => {
-  const { reportId } = req.params;
+    const { reportId } = req.params;
 
-  if (!reportId) {
-    return res.status(400).json({
-      message: 'reportId is required.'
-    });
-  }
+    if (!reportId) {
+        return res.status(400).json({
+            message: 'reportId is required.'
+        });
+    }
 
-  try {
-    const result = await analyzeReport(reportId);
+    try {
+        const result = await analyzeReport(reportId);
 
-    const [insertResult] = await pool.query(
-      `
-      INSERT INTO DECISION_RESULT
-      (ReportID, RuleID, Outcome, Recommendation, RiskLevel)
-      VALUES (?, ?, ?, ?, ?)
-      `,
-      [
-        reportId,
-        result.ruleId,
-        result.outcome,
-        result.recommendation,
-        result.riskLevel
-      ]
-    );
-
-    return res.status(201).json({
-      message: 'Diagnosis completed successfully.',
-      resultId: insertResult.insertId,
-      outcome: result.outcome,
-      recommendation: result.recommendation,
-      riskLevel: result.riskLevel
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: 'Failed to diagnose report.',
-      error: error.message
-    });
-  }
+        const [insertResult] = await pool.query(
+            `
+            INSERT INTO DECISION_RESULT
+            (ReportID, RuleID, Outcome, Recommendation, RiskLevel, Confidence, Explanation, RequiresExpert)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `,
+            [
+                reportId,
+                result.ruleId,
+                result.outcome,
+                result.recommendation,
+                result.riskLevel,
+                result.confidence,
+                result.explanation,
+                result.requiresExpert
+            ]
+        );
+        return res.status(201).json({
+            message: 'Diagnosis completed successfully.',
+            resultId: insertResult.insertId,
+            ruleId: result.ruleId,
+            outcome: result.outcome,
+            recommendation: result.recommendation,
+            riskLevel: result.riskLevel,
+            requiresExpert: result.requiresExpert,
+            confidence: result.confidence,
+            explanation: result.explanation,
+            matchedSymptoms: result.matchedSymptoms || []
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: 'Failed to diagnose report.',
+            error: error.message
+        });
+    }
 };
 
 module.exports = {
-  diagnoseReport
+    diagnoseReport
 };

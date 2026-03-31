@@ -75,4 +75,10 @@ export const getUserResults = (userId) =>
 export const getUserConsultations = (userId) =>
     api.get(`/user/${userId}/consultations`);
 
+export const createFeedback = (data) =>
+    api.post('/feedback', data);
+
+export const getUserReportDetail = (reportId) =>
+    api.get(`/user/report/${reportId}/detail`);
+
 export default api;

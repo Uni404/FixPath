@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     getDeviceCategories,
     getDevicesByCategory,
@@ -17,8 +17,10 @@ import {
     getUserProfileById,
     updateUserProfile,
     getUserReports,
+    getUserReportDetail,
     getUserResults,
-    getUserConsultations
+    getUserConsultations,
+    createFeedback
 } from './api';
 import './App.css';
 
@@ -52,7 +54,6 @@ function App() {
     const [loginForm, setLoginForm] = useState({ email: '', password: '' });
 
     const [consultations, setConsultations] = useState([]);
-
     const [selectedConsultation, setSelectedConsultation] = useState(null);
 
     const [isEditingExpertProfile, setIsEditingExpertProfile] = useState(false);
@@ -74,10 +75,26 @@ function App() {
     const [userConsultationHistory, setUserConsultationHistory] = useState([]);
     const [userView, setUserView] = useState('dashboard');
     const [reportSearch, setReportSearch] = useState('');
-    const [resultSearch, setResultSearch] = useState('');
-    const [consultationSearch, setConsultationSearch] = useState('');
+    //const [resultSearch, setResultSearch] = useState('');
+    //const [consultationSearch, setConsultationSearch] = useState('');
 
-   
+    const [diagnosisFeedback, setDiagnosisFeedback] = useState({
+        rating: '',
+        comments: ''
+    });
+
+    const [consultationFeedback, setConsultationFeedback] = useState({
+        rating: '',
+        comments: ''
+    });
+
+    const [selectedReportDetail, setSelectedReportDetail] = useState(null);
+    const [reportDetailLoading, setReportDetailLoading] = useState(false);
+
+    const [previewImage, setPreviewImage] = useState(null);
+
+    const fileInputRef = useRef(null);
+    const consultationDetailRef = useRef(null);
 
     useEffect(() => {
         const loadCategories = async () => {
@@ -98,30 +115,43 @@ function App() {
     useEffect(() => {
         if (!consultation?.consultationId) return;
 
+
+        if (consultation?.consultationStatus === 'completed') return;
+
         const timer = setInterval(async () => {
             try {
                 const res = await getConsultationById(consultation.consultationId);
 
-                setConsultation({
-                    consultationId: res.data.consultation.ConsultationID,
-                    consultationMode: res.data.consultation.RequestType,
-                    consultationStatus: res.data.consultation.ConsultationStatus,
-                    meetingLink: res.data.consultation.MeetingLink,
+                const data = res.data.consultation;
+
+                setConsultation((prev) => ({
+                    ...prev,
+                    consultationId: data.ConsultationID,
+                    consultationMode: data.RequestType,
+                    consultationStatus: data.ConsultationStatus,
+                    meetingLink: data.MeetingLink,
                     expert: {
-                        expertId: res.data.consultation.ExpertID,
-                        expertName: res.data.consultation.ExpertName,
-                        expertEmail: res.data.consultation.ExpertEmail,
-                        expertRating: res.data.consultation.ExpertRating,
-                        serviceType: res.data.consultation.ServiceType
+                        expertId: data.ExpertID,
+                        expertName: data.ExpertName,
+                        expertEmail: data.ExpertEmail,
+                        expertRating: data.ExpertRating,
+                        serviceType: data.ServiceType
                     }
-                });
+                }));
+
+
+                if (data.ConsultationStatus === 'completed') {
+                    clearInterval(timer);
+                }
+
             } catch (error) {
                 console.error(error);
             }
         }, 4000);
 
         return () => clearInterval(timer);
-    }, [consultation?.consultationId]);
+
+    }, [consultation?.consultationId, consultation?.consultationStatus]);
 
 
 
@@ -271,14 +301,23 @@ function App() {
             const symptoms = res.data?.symptoms || [];
             setSuggestedSymptoms(symptoms);
 
+            const highRiskSymptomNames = ['Smoke', 'Burning smell', 'Overheating'];
+
             const autoSelected = symptoms
-                .filter((symptom) => Number(symptom.score || 0) > 0)
+                .filter((symptom) => {
+                    const score = Number(symptom.score || 0);
+                    const isHighRisk = highRiskSymptomNames.includes(symptom.SymptomName);
+
+                    return score >= 1 || (isHighRisk && score > 0);
+                })
                 .map((symptom) => symptom.SymptomID);
 
             setSelectedSymptoms(autoSelected);
 
             if (symptoms.length === 0) {
                 setMessage('No suggested symptoms found for this description.');
+            } else if (autoSelected.length > 0) {
+                setMessage('Symptoms suggested and high-confidence matches were auto-selected.');
             } else {
                 setMessage('Symptoms suggested successfully.');
             }
@@ -331,11 +370,23 @@ function App() {
 
             const diagnoseRes = await diagnoseReport(newReportId);
             const diagnosisData = diagnoseRes.data;
-            setDiagnosis(diagnosisData);
+
+            console.log('diagnosis response =', diagnosisData);
+
+            setDiagnosis({
+                resultId: diagnosisData.resultId,
+                ruleId: diagnosisData.ruleId,
+                outcome: diagnosisData.outcome,
+                recommendation: diagnosisData.recommendation,
+                riskLevel: diagnosisData.riskLevel,
+                requiresExpert: diagnosisData.requiresExpert,
+                confidence: diagnosisData.confidence,
+                explanation: diagnosisData.explanation,
+                matchedSymptoms: diagnosisData.matchedSymptoms || []
+            });
 
             setMessage('Problem submitted and diagnosed successfully.');
             await fetchUserHistory(profile?.id);
-           
 
         } catch (error) {
             setMessage(
@@ -417,7 +468,9 @@ function App() {
         window.open(link, '_blank', 'noopener,noreferrer');
     };
 
-    const fetchConsultations = async () => {
+
+
+    const fetchConsultations = useCallback(async () => {
         if (!profile?.id) {
             setMessage('Expert profile is missing.');
             return;
@@ -432,7 +485,20 @@ function App() {
                 error?.response?.data?.message || 'Failed to fetch consultations.'
             );
         }
-    };
+    }, [profile?.id]);
+
+    useEffect(() => {
+        if (role !== 'expert' || !profile?.id) return;
+
+
+        fetchConsultations();
+
+        const timer = setInterval(() => {
+            fetchConsultations();
+        }, 5000);
+
+        return () => clearInterval(timer);
+    }, [role, profile?.id, fetchConsultations]);
 
     const fetchConsultationDetail = async (id) => {
         try {
@@ -446,6 +512,8 @@ function App() {
             );
         }
     };
+
+
 
     const updateStatus = async (id, status) => {
         try {
@@ -463,10 +531,10 @@ function App() {
         try {
             await updateConsultationStatus(consultationItem.ConsultationID, 'ready');
 
-            
+
             await fetchConsultations();
 
-            
+
             if (
                 selectedConsultation &&
                 selectedConsultation.ConsultationID === consultationItem.ConsultationID
@@ -474,7 +542,7 @@ function App() {
                 await fetchConsultationDetail(consultationItem.ConsultationID);
             }
 
-            
+
             if (consultationItem.MeetingLink) {
                 openMeetingLink(consultationItem.MeetingLink);
             } else {
@@ -523,12 +591,12 @@ function App() {
 
         try {
             const res = await updateExpertProfile(profile.id, {
-                    expertName: expertProfileForm.expertName,
-                    phone: expertProfileForm.phone,
-                    serviceType: expertProfileForm.serviceType,
-                    availabilityStatus: expertProfileForm.availabilityStatus
-             });
-            
+                expertName: expertProfileForm.expertName,
+                phone: expertProfileForm.phone,
+                serviceType: expertProfileForm.serviceType,
+                availabilityStatus: expertProfileForm.availabilityStatus
+            });
+
             const updated = res.data.profile;
 
             setProfile({
@@ -602,13 +670,166 @@ function App() {
     };
 
 
+    const submitConsultationFeedback = async () => {
+        console.log('consultation feedback clicked');
+        console.log('payload =', {
+            FeedbackType: 'consultation',
+            ReportID: reportId || null,
+            ConsultationID: consultation?.consultationId,
+            ExpertID: consultation?.expert?.expertId,
+            UserID: profile?.id,
+            Rating: Number(consultationFeedback.rating),
+            Comments: consultationFeedback.comments
+        });
+
+        if (!consultation?.consultationId) {
+            setMessage('No consultation found.');
+            return;
+        }
+
+        if (!consultation?.expert?.expertId) {
+            setMessage('No expert found.');
+            return;
+        }
+
+        if (!consultationFeedback.rating) {
+            setMessage('Please select a rating.');
+            return;
+        }
+
+        try {
+            await createFeedback({
+                FeedbackType: 'consultation',
+                ReportID: reportId || null,
+                ConsultationID: consultation.consultationId,
+                ExpertID: consultation.expert.expertId,
+                UserID: profile?.id,
+                Rating: Number(consultationFeedback.rating),
+                Comments: consultationFeedback.comments
+            });
+
+            setMessage('Consultation feedback submitted successfully.');
+
+            setConsultationFeedback({
+                rating: '',
+                comments: ''
+            });
+            resetReportForm();
+            setUserView('report-form');
+        } catch (error) {
+            console.error('CONSULTATION FEEDBACK ERROR:', error?.response?.data || error);
+            setMessage(
+                error?.response?.data?.sqlMessage ||
+                error?.response?.data?.message ||
+                'Failed to submit consultation feedback.'
+            );
+        }
+    };
+
+
+    const submitDiagnosisFeedback = async () => {
+        console.log('diagnosis feedback clicked');
+        console.log('profile =', profile);
+
+        if (!diagnosis?.resultId) {
+            setMessage('No diagnosis result found.');
+            return;
+        }
+
+        if (!diagnosisFeedback.rating) {
+            setMessage('Please select a rating.');
+            return;
+        }
+
+        try {
+            await createFeedback({
+                FeedbackType: 'diagnosis',
+                ReportID: reportId,
+                ResultID: diagnosis.resultId,
+                UserID: profile?.id,
+                Rating: Number(diagnosisFeedback.rating),
+                Comments: diagnosisFeedback.comments
+            });
+
+            setMessage('Diagnosis feedback submitted successfully.');
+
+            setDiagnosisFeedback({
+                rating: '',
+                comments: ''
+            });
+            resetReportForm();
+            setUserView('report-form');
+        } catch (error) {
+            console.error(error);
+            setMessage(
+                error?.response?.data?.message || 'Failed to submit diagnosis feedback.'
+            );
+        }
+    };
+
+    const resetReportForm = () => {
+        setSelectedCategory('');
+        setSelectedDevice('');
+        setProblemDescription('');
+        setSuggestedSymptoms([]);
+        setSelectedSymptoms([]);
+        setMediaFiles([]);
+
+        setReportId(null);
+        setDiagnosis(null);
+        setConsultation(null);
+        setReplacementOptions([]);
+
+        setMessage('');
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const fetchUserReportDetail = async (reportId) => {
+        try {
+            setReportDetailLoading(true);
+            console.log('fetching report detail:', reportId);
+
+            const res = await getUserReportDetail(reportId);
+
+            console.log('report detail response:', res.data);
+            console.log('Report detail media: ', res.data.media);
+
+            setSelectedReportDetail({
+                report: res.data.report,
+                media: res.data.media || [],
+                results: res.data.results || [],
+                consultations: res.data.consultations || []
+            });
+        } catch (error) {
+            console.error('report detail error:', error);
+            setMessage(
+                error?.response?.data?.message || 'Failed to load report detail.'
+            );
+        } finally {
+            setReportDetailLoading(false);
+        }
+    };
 
 
 
-    if (!role) {
-        return (
-            <div className="app-shell">
-                <div className="container">
+
+
+
+
+    return (
+        <div className="app-shell">
+            <section className="container">
+                <header className="hero">
+                    <h1>FixPath</h1>
+                    <p className="subtitle">
+                        Decision-support troubleshooting platform
+                    </p >
+                </header>
+
+                {!role && (
+
                     <div className="card">
                         <h1>FixPath</h1>
                         <p className="subtitle">Decision-support troubleshooting platform</p >
@@ -669,443 +890,911 @@ function App() {
                             </div>
                         )}
                     </div>
-                </div>
-            </div>
-        );
-    }
-    if (role === 'expert') {
-        return (
-            <div className="container">
-                <h1>Expert Dashboard</h1>
 
-                {expertView === 'dashboard' && (
+                )}
+
+
+                {role === 'expert' &&
+                (
                     <>
 
-                        {profile && (
-                            <div className="card">
-                                <h2>Expert Profile</h2>
-                                {!isEditingExpertProfile ? (
-                                    <>
-                                        <p><strong>Name:</strong> {profile.name}</p >
-                                        <p><strong>Email:</strong> {profile.email}</p >
-                                        <p><strong>Phone:</strong> {profile.phone || 'Not provided'}</p >
-                                        <p><strong>Service Type:</strong> {profile.serviceType}</p >
-                                        <p><strong>Rating:</strong> {profile.rating}</p >
-                                        <p><strong>Status:</strong> {profile.availabilityStatus || 'Unknown'}</p >
-
-                                        <button
-                                            type="button"
-                                            className="secondary-btn"
-                                            onClick={startEditExpertProfile}
-                                        >
-                                            Edit Profile
-                                        </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="field">
-                                            <label>Name</label>
-                                            <input
-                                                type="text"
-                                                name="expertName"
-                                                value={expertProfileForm.expertName}
-                                                onChange={handleExpertProfileChange}
-                                            />
-                                        </div>
-
-                                        <div className="field">
-                                            <label>Email</label>
-                                            <input
-                                                type="email"
-                                                name="expertEmail"
-                                                value={expertProfileForm.expertEmail}
-                                                onChange={handleExpertProfileChange}
-                                            />
-                                        </div>
-
-                                        <div className="field">
-                                            <label>Phone</label>
-                                            <input
-                                                type="text"
-                                                name="phone"
-                                                value={expertProfileForm.phone}
-                                                onChange={handleExpertProfileChange}
-                                            />
-                                        </div>
-
-                                        <div className="field">
-                                            <label>Service Type</label>
-                                            <input
-                                                type="text"
-                                                name="serviceType"
-                                                value={expertProfileForm.serviceType}
-                                                onChange={handleExpertProfileChange}
-                                            />
-                                        </div>
-
-                                        <div className="field">
-                                            <label>Availability Status</label>
-                                            <select
-                                                name="availabilityStatus"
-                                                value={expertProfileForm.availabilityStatus}
-                                                onChange={handleExpertProfileChange}
-                                            >
-                                                <option value="Available">Available</option>
-                                                <option value="Busy">Busy</option>
-                                                <option value="Offline">Offline</option>
-                                            </select>
-                                        </div>
-
-                                        <div className="button-row">
-                                            <button
-                                                type="button"
-                                                className="primary-btn"
-                                                onClick={saveExpertProfile}
-                                            >
-                                                Save
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                className="secondary-btn"
-                                                onClick={() => setIsEditingExpertProfile(false)}
-                                            >
-                                                Cancel
-                                            </button>
-                                        </div>
-
-                                    </>
-                                )}
-                            </div>
-                        )}
-
-                        <button onClick={fetchConsultations}>Refresh</button>
-                        <button
-                            onClick={() => {
-                                setRole(null);
-                                setProfile(null);
-                                setLoginType(null);
-                                // setSelectedConsultation(null);
-                                // setConsultations([]);
-                            }}
-
-                        >
-                            Logout
-                        </button>
-
-                        <div className="card">
-                            <h2>Current Consultation</h2>
-
-                            {consultations.length === 0 ? (
-                                <p>No consultations assigned.</p >
-                            ) : (
-                                <div className="consultation-item">
-                                    <p><strong>Consultation ID:</strong> {consultations[0].ConsultationID}</p >
-                                    <p><strong>Result ID:</strong> {consultations[0].ResultID}</p >
-                                    <p><strong>Status:</strong> {consultations[0].ConsultationStatus}</p >
-                                    <p><strong>Request Date:</strong> {consultations[0].RequestDate}</p >
-
-                                    <div className="button-row">
-
-                                        <button
-                                            type="button"
-                                            className="secondary-btn"
-                                            onClick={() =>
-                                                fetchConsultationDetail(consultations[0].ConsultationID)
-                                            }
-                                        >
-                                            View Detail
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            className="secondary-btn"
-                                            onClick={() => confirmAndOpenMeeting(consultations[0])}
-                                            disabled={
-                                                consultations[0].ConsultationStatus === 'ready' ||
-                                                consultations[0].ConsultationStatus === 'ongoing' ||
-                                                consultations[0].ConsultationStatus === 'completed'
-                                            }
-                                        >
-                                            Confirm and Open Meeting
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            className="secondary-btn"
-                                            onClick={() =>
-                                                updateStatus(consultations[0].ConsultationID, 'completed')
-                                            }
-                                            disabled={consultations[0].ConsultationStatus === 'completed'}
-                                        >
-                                            Complete
-                                        </button>
-
-                                    </div>
-
-                                </div>
-                            )}
-                        </div>
-                        <div className="card">
-                            <h2>Consultation History</h2>
-                            <p>View all assigned consultations and search consultation records.</p >
-
-                            <button
-                                type="button"
-                                className="secondary-btn"
-                                onClick={() => setExpertView('consultations-history')}
-                            >
-                                View All Consultations
-                            </button>
-                        </div>
-
-
-
-                        {selectedConsultation && (
-                            <div className="card">
-                                <h2>Consultation Detail</h2>
-
-                                <p><strong>Consultation ID:</strong> {selectedConsultation.ConsultationID}</p >
-                                <p><strong>Result ID:</strong> {selectedConsultation.ResultID}</p >
-                                <p><strong>User ID:</strong> {selectedConsultation.UserID}</p >
-                                <p><strong>Category:</strong> {selectedConsultation.CategoryName}</p >
-                                <p><strong>Device:</strong> {selectedConsultation.DeviceName}</p >
-                                <p><strong>Problem Report:</strong> {selectedConsultation.ProblemDescription}</p >
-                                <p><strong>Report Date:</strong> {selectedConsultation.ReportDate}</p >
-
-                                <p><strong>Diagnosis Outcome:</strong> {selectedConsultation.Outcome}</p >
-                                <p><strong>Risk Level:</strong> {selectedConsultation.RiskLevel}</p >
-                                <p><strong>Recommendation:</strong> {selectedConsultation.Recommendation}</p >
-
-                                {selectedConsultation.media?.length > 0 && (
-                                    <div className="card">
-                                        <h3>Uploaded Media</h3>
-
-                                        {selectedConsultation.media.map((item) => (
-                                            <div key={item.MediaID} style={{ marginBottom: '16px' }}>
-                                                {item.MediaType === 'image' ? (
-                                                    <img
-                                                        src={`http://localhost:5000${item.MediaURL}`}
-                                                        alt="Uploaded issue"
-                                                        style={{ width: '220px', borderRadius: '8px' }}
-                                                    />
-                                                ) : (
-                                                    <video width="320" controls>
-                                                        <source
-                                                            src={`http://localhost:5000${item.MediaURL}`}
-                                                            type="video/mp4"
-                                                        />
-                                                        Your browser does not support video playback.
-                                                    </video>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                <p><strong>Report Date:</strong> {selectedConsultation.ReportDate}</p >
-                                <p><strong>Expert:</strong> {selectedConsultation.ExpertName}</p >
-                                <p><strong>Service Type:</strong> {selectedConsultation.ServiceType}</p >
-                                <p><strong>Status:</strong> {selectedConsultation.ConsultationStatus}</p >
-                                <p><strong>Request Type:</strong> {selectedConsultation.RequestType}</p >
-                                <p><strong>Request Date:</strong> {selectedConsultation.RequestDate}</p >
-                                <p><strong>Consultation Date:</strong> {selectedConsultation.ConsultationDate || 'Not started yet'}</p >
-                                <p><strong>Notes:</strong> {selectedConsultation.ConsultationNotes || 'No notes'}</p >
-                                <p><strong>Meeting Link:</strong> {selectedConsultation.MeetingLink}</p >
-                                <p><strong>Meeting Role:</strong> Host (Expert)</p >
-
+                        {expertView === 'dashboard' && (
+                            <>
+                                <button onClick={fetchConsultations}>Refresh</button>
                                 <button
-                                    type="button"
-                                    className="secondary-btn"
-                                    onClick={() => openMeetingLink(selectedConsultation.MeetingLink)}
+                                    onClick={() => {
+                                        setRole(null);
+                                        setProfile(null);
+                                        setLoginType(null);
+                                        setSelectedConsultation(null);
+                                        setConsultations([]);
+                                        setExpertView('dashboard');
+                                        setExpertConsultationSearch('');
+                                    }}
                                 >
-                                    Join Video Consultation
+                                    Logout
                                 </button>
-                            </div>
-                        )}
-                    </>
-                )}
-                    
-                {expertView === 'consultations-history' && (
-                    <div className="card">
-                        <h2>All Consultations</h2>
 
-                        <button
-                            type="button"
-                            className="secondary-btn"
-                            onClick={() => setExpertView('dashboard')}
-                        >
-                            Back to Dashboard
-                        </button>
+                                {profile && (
+                                    <div className="card">
+                                        <h2>Expert Profile</h2>
+                                        {!isEditingExpertProfile ? (
+                                            <>
+                                                <p><strong>Name:</strong> {profile.name}</p >
+                                                <p><strong>Email:</strong> {profile.email}</p >
+                                                <p><strong>Phone:</strong> {profile.phone || 'Not provided'}</p >
+                                                <p><strong>Service Type:</strong> {profile.serviceType}</p >
+                                                <p><strong>Rating:</strong> {profile.rating}</p >
+                                                <p><strong>Status:</strong> {profile.availabilityStatus || 'Unknown'}</p >
 
-                        <div style={{ marginTop: '16px' }}>
-                            <input
-                                type="text"
-                                placeholder="Search consultations..."
-                                value={expertConsultationSearch}
-                                onChange={(e) => setExpertConsultationSearch(e.target.value)}
-                            />
-                        </div>
-
-                        <ul>
-                            {consultations
-                                .filter((c) =>
-                                    String(c.ConsultationID).includes(expertConsultationSearch) ||
-                                    (c.ConsultationStatus || '')
-                                        .toLowerCase()
-                                        .includes(expertConsultationSearch.toLowerCase()) ||
-                                    (c.ServiceType || '')
-                                        .toLowerCase()
-                                        .includes(expertConsultationSearch.toLowerCase())
-                                )
-                                .map((c) => (
-                                    <li key={c.ConsultationID} className="consultation-item">
-                                        <div
-                                            onClick={() => fetchConsultationDetail(c.ConsultationID)}
-                                            style={{ cursor: 'pointer' }}
-                                        >
-                                            <div><strong>Consultation ID:</strong> {c.ConsultationID}</div>
-                                            <div><strong>Result:</strong> {c.ResultID}</div>
-                                            <div><strong>Status:</strong> {c.ConsultationStatus}</div>
-                                        </div>
-
-                                        <div className="button-row">
-                                            <button
-                                                type="button"
-                                                className="secondary-btn"
-                                                onClick={() => confirmAndOpenMeeting(c)}
-                                                disabled={
-                                                    c.ConsultationStatus === 'ready' ||
-                                                    c.ConsultationStatus === 'ongoing' ||
-                                                    c.ConsultationStatus === 'completed'
-                                                }
-                                            >
-                                                Confirm and Open Meeting
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                className="secondary-btn"
-                                                onClick={() => updateStatus(c.ConsultationID, 'completed')}
-                                                disabled={c.ConsultationStatus === 'completed'}
-                                            >
-                                                Complete
-                                            </button>
-                                        </div>
-                                    </li>
-                                ))}
-                        </ul>
-                    </div>
-                )}
-               
-            </div>  
-            
-        );
-    }
-
-    if (role === 'user') {
-        return (
-            <div className="app-shell">
-                <div className="container">
-                    <header className="hero">
-                        <h1>FixPath User Dashboard</h1>
-                        <p className="subtitle">Manage your reports, results, and consultations</p >
-                    </header>
-
-                    {userView === 'dashboard' && (
-                        <>
-                            {profile && role === 'user' && (
-                                <section className="card">
-                                    <h2>User Profile</h2>
-                            
-                                    {!isEditingUserProfile ? (
-                                        <>
-                                            <p><strong>Name:</strong> {profile.name}</p >
-                                            <p><strong>Email:</strong> {profile.email}</p >
-
-                                            <button
-                                                type="button"
-                                                className="secondary-btn"
-                                                onClick={startEditUserProfile}
-                                            >
-                                                Edit Profile
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="field">
-                                                <label>Name</label>
-                                                <input
-                                                    type="text"
-                                                    name="name"
-                                                    value={userProfileForm.name}
-                                                    onChange={handleUserProfileChange}
-                                                />
-                                            </div>
-
-                                            <div className="field">
-                                                <label>Email</label>
-                                                <input
-                                                    type="email"
-                                                    name="email"
-                                                    value={userProfileForm.email}
-                                                    onChange={handleUserProfileChange}
-                                                />
-                                            </div>
-
-                                            <div className="button-row">
                                                 <button
                                                     type="button"
-                                                    className="primary-btn"
-                                                    onClick={saveUserProfile}
+                                                    className="secondary-btn"
+                                                    onClick={startEditExpertProfile}
                                                 >
-                                                    Save
+                                                    Edit Profile
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="field">
+                                                    <label>Name</label>
+                                                    <input
+                                                        type="text"
+                                                        name="expertName"
+                                                        value={expertProfileForm.expertName}
+                                                        onChange={handleExpertProfileChange}
+                                                    />
+                                                </div>
+
+                                                <div className="field">
+                                                    <label>Email</label>
+                                                    <input
+                                                        type="email"
+                                                        name="expertEmail"
+                                                        value={expertProfileForm.expertEmail}
+                                                        onChange={handleExpertProfileChange}
+                                                    />
+                                                </div>
+
+                                                <div className="field">
+                                                    <label>Phone</label>
+                                                    <input
+                                                        type="text"
+                                                        name="phone"
+                                                        value={expertProfileForm.phone}
+                                                        onChange={handleExpertProfileChange}
+                                                    />
+                                                </div>
+
+                                                <div className="field">
+                                                    <label>Service Type</label>
+                                                    <input
+                                                        type="text"
+                                                        name="serviceType"
+                                                        value={expertProfileForm.serviceType}
+                                                        onChange={handleExpertProfileChange}
+                                                    />
+                                                </div>
+
+                                                <div className="field">
+                                                    <label>Availability Status</label>
+                                                    <select
+                                                        name="availabilityStatus"
+                                                        value={expertProfileForm.availabilityStatus}
+                                                        onChange={handleExpertProfileChange}
+                                                    >
+                                                        <option value="Available">Available</option>
+                                                        <option value="Busy">Busy</option>
+                                                        <option value="Offline">Offline</option>
+                                                    </select>
+                                                </div>
+
+                                                <div className="button-row">
+                                                    <button
+                                                        type="button"
+                                                        className="primary-btn"
+                                                        onClick={saveExpertProfile}
+                                                    >
+                                                        Save
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        className="secondary-btn"
+                                                        onClick={() => setIsEditingExpertProfile(false)}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+
+
+
+                                <div className="card">
+                                    <h2>Current Consultation</h2>
+
+                                    {consultations.length === 0 ? (
+                                        <p>No consultations assigned.</p >
+                                    ) : (
+                                        <div className="consultation-item">
+                                            <p><strong>Consultation ID:</strong> {consultations[0].ConsultationID}</p >
+                                            <p><strong>Result ID:</strong> {consultations[0].ResultID}</p >
+                                            <p><strong>Status:</strong> {consultations[0].ConsultationStatus}</p >
+                                            <p><strong>Request Date:</strong> {consultations[0].RequestDate}</p >
+
+                                            <div className="button-row">
+
+                                                <button
+                                                    type="button"
+                                                    className="secondary-btn"
+                                                    onClick={async () => {
+                                                        await fetchConsultationDetail(consultations[0].ConsultationID);
+                                                        setExpertView('dashboard');
+
+                                                        setTimeout(() => {
+                                                            consultationDetailRef.current?.scrollIntoView({
+                                                                behavior: 'smooth',
+                                                                block: 'start'
+                                                            });
+                                                        }, 100);
+                                                    }}
+                                                >
+                                                    View Detail
                                                 </button>
 
                                                 <button
                                                     type="button"
                                                     className="secondary-btn"
-                                                    onClick={() => setIsEditingUserProfile(false)}
+                                                    onClick={() => confirmAndOpenMeeting(consultations[0])}
+                                                    disabled={
+                                                        consultations[0].ConsultationStatus === 'ready' ||
+                                                        consultations[0].ConsultationStatus === 'ongoing' ||
+                                                        consultations[0].ConsultationStatus === 'completed'
+                                                    }
                                                 >
-                                                    Cancel
+                                                    Confirm and Open Meeting
                                                 </button>
+
+                                                <button
+                                                    type="button"
+                                                    className="secondary-btn"
+                                                    onClick={() =>
+                                                        updateStatus(consultations[0].ConsultationID, 'completed')
+                                                    }
+                                                    disabled={consultations[0].ConsultationStatus === 'completed'}
+                                                >
+                                                    Complete
+                                                </button>
+
                                             </div>
-                                        </>
+
+                                        </div>
                                     )}
-                                </section>
-                            )}
-                           
-                            <div className="button-row">
+                                </div>
+
+                                {selectedConsultation && (
+                                    <div className="card" ref={consultationDetailRef}>
+                                        <h2>Consultation Detail</h2>
+
+                                        <p><strong>Consultation ID:</strong> {selectedConsultation.ConsultationID}</p >
+                                        <p><strong>Result ID:</strong> {selectedConsultation.ResultID}</p >
+                                        <p><strong>User ID:</strong> {selectedConsultation.UserID}</p >
+                                        <p><strong>Category:</strong> {selectedConsultation.CategoryName}</p >
+                                        <p><strong>Device:</strong> {selectedConsultation.DeviceName}</p >
+                                        <p><strong>Problem Report:</strong> {selectedConsultation.ProblemDescription}</p >
+                                        <p><strong>Report Date:</strong> {selectedConsultation.ReportDate}</p >
+
+                                        <p><strong>Diagnosis Outcome:</strong> {selectedConsultation.Outcome}</p >
+                                        <p><strong>Risk Level:</strong> {selectedConsultation.RiskLevel}</p >
+                                        <p><strong>Recommendation:</strong> {selectedConsultation.Recommendation}</p >
+
+                                        {selectedConsultation.media?.length > 0 && (
+                                            <div className="card">
+                                                <h3>Uploaded Media</h3>
+
+                                                {selectedConsultation.media.map((item) => (
+                                                    <div key={item.MediaID} style={{ marginBottom: '16px' }}>
+                                                        {item.MediaType === 'image' ? (
+                                                            <img
+                                                                src={`http://localhost:5000${item.MediaURL}`}
+                                                                alt="Uploaded issue"
+                                                                style={{
+                                                                    width: '220px',
+                                                                    borderRadius: '8px',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                                onClick={() =>
+                                                                    setPreviewImage(`http://localhost:5000${item.MediaURL}`)
+                                                                }
+                                                            />
+                                                        ) : (
+                                                            <video width="320" controls>
+                                                                <source
+                                                                    src={`http://localhost:5000${item.MediaURL}`}
+                                                                    type="video/mp4"
+                                                                />
+                                                                Your browser does not support video playback.
+                                                            </video>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                            
+                                        <p><strong>Service Type:</strong> {selectedConsultation.ServiceType}</p >
+                                        <p><strong>Status:</strong> {selectedConsultation.ConsultationStatus}</p >
+                                        <p><strong>Request Type:</strong> {selectedConsultation.RequestType}</p >
+                                        <p><strong>Request Date:</strong> {selectedConsultation.RequestDate}</p >
+                                        <p><strong>Consultation Date:</strong> {selectedConsultation.ConsultationDate || 'Not started yet'}</p >
+                                        <p><strong>Notes:</strong> {selectedConsultation.ConsultationNotes || 'No notes'}</p >
+                                        <p><strong>Meeting Link:</strong> {selectedConsultation.MeetingLink}</p >
+                                        <p><strong>Meeting Role:</strong> Host (Expert)</p >
+
+                                        <button
+                                            type="button"
+                                            className="secondary-btn"
+                                            onClick={() => openMeetingLink(selectedConsultation.MeetingLink)}
+                                        >
+                                            Open Meeting
+                                        </button>
+                                    </div>
+                                )}
+
+                                <div className="card">
+                                    <h2>Consultation History</h2>
+                                    <p>View all assigned consultations and search consultation records.</p >
+
+                                    <button
+                                        type="button"
+                                        className="secondary-btn"
+                                        onClick={() => {
+                                            setExpertView('consultations-history');
+                                            window.scrollTo({ top: 0, behavior: 'auto' });
+                                        }}
+                                    >
+                                        View History Consultation
+                                    </button>
+                                </div>
+
+                            </>
+                        )}
+
+                        {expertView === 'consultations-history' && (
+                            <div className="card">
+                                <h2>All Consultations</h2>
+
                                 <button
                                     type="button"
                                     className="secondary-btn"
+                                    onClick={() => setExpertView('dashboard')}
+                                >
+                                    Back to Dashboard
+                                </button>
+
+                                <div style={{ marginTop: '16px' }}>
+                                    <input
+                                        type="text"
+                                        placeholder="Search consultations..."
+                                        value={expertConsultationSearch}
+                                        onChange={(e) => setExpertConsultationSearch(e.target.value)}
+                                    />
+                                </div>
+
+                            <ul>
+                                {consultations
+                                    .filter((c) =>
+                                        String(c.ConsultationID).includes(expertConsultationSearch) ||
+                                        (c.ConsultationStatus || '')
+                                            .toLowerCase()
+                                            .includes(expertConsultationSearch.toLowerCase()) ||
+                                        (c.ServiceType || '')
+                                            .toLowerCase()
+                                            .includes(expertConsultationSearch.toLowerCase())
+                                    )
+                                    .map((c) => (
+                                        <li key={c.ConsultationID} className="consultation-item">
+
+                                            <div>
+                                                <div><strong>Consultation ID:</strong> {c.ConsultationID}</div>
+                                                <div><strong>Result ID:</strong> {c.ResultID}</div>
+                                                <div><strong>Status:</strong> {c.ConsultationStatus}</div>                                              
+                                            </div>
+
+                                            <div className="button-row">
+                                                <button
+                                                    type="button"
+                                                    className="secondary-btn"
+                                                    onClick={async () => {
+                                                        await fetchConsultationDetail(c.ConsultationID);
+                                                        setExpertView('dashboard');
+
+                                                        setTimeout(() => {
+                                                            consultationDetailRef.current?.scrollIntoView({
+                                                                behavior: 'smooth',
+                                                                block: 'start'
+                                                            });
+                                                        }, 100);
+                                                    }}
+                                                >
+                                                    View Detail
+                                                </button>
+                                            </div>
+
+                                        </li>
+                                    ))}
+                            </ul>
+                            </div>
+                        )}
+
+                    </>
+                )}
+
+
+
+                {role === 'user' &&
+                (
+                    <>
+
+                        {userView === 'dashboard' && (
+                            <>
+
+                                <button onClick={fetchConsultations}>Refresh</button>
+                                <button
                                     onClick={() => {
                                         setRole(null);
                                         setProfile(null);
                                         setLoginType(null);
-                                        setUserView('dashboard'); 
+                                        setUserView('dashboard');
+                                        setSelectedReportDetail(null);
+                                        setReportSearch('');
+                                        setDiagnosis(null);
+                                        setConsultation(null);
+                                        setReplacementOptions([]);
+                                        setReportId(null);
                                     }}
                                 >
                                     Logout
                                 </button>
-                            </div>
+
+                                {profile && role === 'user' && (
+                                    <section className="card">
+                                        <h2>User Profile</h2>
+                                        {!isEditingUserProfile ? (
+                                            <>
+                                                <p><strong>Name:</strong> {profile.name}</p >
+                                                <p><strong>Email:</strong> {profile.email}</p >
+
+                                                <button
+                                                    type="button"
+                                                    className="secondary-btn"
+                                                    onClick={startEditUserProfile}
+                                                >
+                                                    Edit Profile
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="field">
+                                                    <label>Name</label>
+                                                    <input
+                                                        type="text"
+                                                        name="name"
+                                                        value={userProfileForm.name}
+                                                        onChange={handleUserProfileChange}
+                                                    />
+                                                </div>
+                                                <div className="field">
+                                                    <label>Email</label>
+                                                    <input
+                                                        type="email"
+                                                        name="email"
+                                                        value={userProfileForm.email}
+                                                        onChange={handleUserProfileChange}
+                                                    />
+                                                </div>
+
+                                                <div className="button-row">
+                                                    <button
+                                                        type="button"
+                                                        className="primary-btn"
+                                                        onClick={saveUserProfile}
+                                                    >
+                                                        Save
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="secondary-btn"
+                                                        onClick={() => setIsEditingUserProfile(false)}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
+                                    </section>
+                                )}
+
+                                <section className="card">
+                                    <h2>Quick Action</h2>
+                                    <button
+                                        type="button"
+                                        className="primary-btn"
+                                        onClick={() => setUserView('report-form')}
+                                    >
+                                        + Create New Report
+                                    </button>
+                                </section>
+                                <section className="card">
+                                    <h2>Latest Reports</h2>
+                                    {userReports.length === 0 ? (
+                                        <p>No reports found.</p >
+                                    ) : (
+                                        userReports.slice(0, 1).map((report) => (
+                                            <div key={report.ReportID} className="consultation-item">
+                                                <p><strong>Report ID:</strong> {report.ReportID}</p >
+                                                <p><strong>Category:</strong> {report.CategoryName}</p >
+                                                <p><strong>Device:</strong> {report.DeviceName}</p >
+                                                <p><strong>Problem:</strong> {report.ProblemDescription}</p >
+                                                <p><strong>Date:</strong> {report.ReportDate}</p >
+                                                <p><strong>Status:</strong> {report.Status}</p >
+
+                                                <button
+                                                    type="button"
+                                                    className="secondary-btn"
+                                                    onClick={() => {
+                                                        setUserView('report-detail');
+                                                        fetchUserReportDetail(report.ReportID);
+                                                    }}
+                                                >
+                                                    Open Report Detail
+                                                </button>
+                                            </div>
+                                        ))
+                                    )}
+                                    <button
+                                        type="button"
+                                        className="secondary-btn"
+                                        onClick={() => setUserView('reports-history')}
+                                    >
+                                        View More
+                                    </button>
+                                </section>
+
+                            </>
+                        )}
+
+                        {userView === 'report-form' && (
+                            <>
+                                <section className="card">
+                                    <h2>Submit Problem Report</h2>
+
+                                    <button
+                                        type="button"
+                                        className="secondary-btn"
+                                        onClick={() => setUserView('dashboard')}
+                                    >
+                                        Back to Dashboard
+                                    </button>
+
+                                    <div className="form-grid" style={{ marginTop: '16px' }}>
+                                        <div className="field">
+                                            <label>Device Category</label>
+                                            <select
+                                                value={selectedCategory}
+                                                onChange={handleCategoryChange}
+                                            >
+                                                <option value="">Select a category</option>
+                                                {categories.map((cat) => (
+                                                    <option key={cat.CategoryID} value={cat.CategoryID}>
+                                                        {cat.CategoryName}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="field">
+                                            <label>Device</label>
+                                            <select
+                                                value={selectedDevice}
+                                                onChange={handleDeviceChange}
+                                                disabled={!selectedCategory}
+                                            >
+                                                <option value="">Select a device</option>
+                                                {devices.map((device) => (
+                                                    <option key={device.DeviceID} value={device.DeviceID}>
+                                                        {device.DeviceName}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="field field-full">
+                                            <label>Problem Description</label>
+                                            <textarea
+                                                value={problemDescription}
+                                                onChange={(e) => setProblemDescription(e.target.value)}
+                                                placeholder="Describe the issue..."
+                                            />
+                                        </div>
+
+                                        <div className="field field-full">
+                                            <div className="inline-row">
+                                                <label className="inline-label">Suggested Symptoms</label>
+                                                <button
+                                                    type="button"
+                                                    className="secondary-btn"
+                                                    onClick={handleSuggestSymptoms}
+                                                    disabled={suggesting}
+                                                >
+                                                    {suggesting ? 'Suggesting...' : 'Suggest Symptoms'}
+                                                </button>
+                                            </div>
+
+                                            {suggestedSymptoms.length === 0 ? (
+                                                <div className="helper-box">
+                                                    No symptoms suggested yet. Select a device and enter a
+                                                    problem description first.
+                                                </div>
+                                            ) : (
+                                                <div className="checkbox-group">
+                                                    {suggestedSymptoms.map((symptom) => (
+                                                        <label key={symptom.SymptomID} className="checkbox-item">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedSymptoms.includes(symptom.SymptomID)}
+                                                                onChange={() => toggleSymptom(symptom.SymptomID)}
+                                                            />
+                                                            <span className="checkbox-text">
+                                                                <strong>{symptom.SymptomName}</strong>
+                                                                {symptom.score !== undefined && (
+                                                                    <span className="score-badge">
+                                                                        score: {Number(symptom.score || 0).toFixed(2)}
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="field field-full">
+                                            <label>Upload Photos or Video</label>
+                                            <input
+                                                type="file"
+                                                multiple
+                                                accept="image/*,video/*"
+                                                ref={fileInputRef}
+                                                onChange={(e) => setMediaFiles(Array.from(e.target.files || []))}
+                                            />
+                                            {mediaFiles.length > 0 && (
+                                                <ul className="file-list">
+                                                    {mediaFiles.map((file, index) => (
+                                                        <li key={`${file.name}-${index}`}>
+                                                            {file.name}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="button-row">
+                                        <button
+                                            type="button"
+                                            className="primary-btn"
+                                            onClick={handleSubmitAndDiagnose}
+                                            disabled={loading}
+                                        >
+                                            {loading ? 'Submitting...' : 'Submit and Diagnose'}
+                                        </button>
+                                    </div>
+                                </section>
+
+                                {message && (
+                                    <section className="card">
+                                        <h2>System Message</h2>
+                                        <p>{message}</p >
+                                    </section>
+                                )}
+
+                                {reportId && (
+                                    <section className="card">
+                                        <h2>Report Created</h2>
+                                        <p><strong>Report ID:</strong> {reportId}</p >
+                                    </section>
+                                )}
+
+                                {diagnosis && (
+                                    <section className="card">
+                                        <h2>Diagnosis Result</h2>
+
+                                        <p><strong>Result ID:</strong> {diagnosis.resultId}</p >
+                                        <p><strong>Outcome:</strong> {diagnosis.outcome}</p >
+                                        <p>
+                                            <strong>Risk Level:</strong>{' '}
+                                            <span
+                                                style={{
+                                                    color:
+                                                        diagnosis.riskLevel === 'High'
+                                                            ? 'red'
+                                                            : diagnosis.riskLevel === 'Medium'
+                                                                ? '#d97706'
+                                                                : 'green',
+                                                    fontWeight: '700'
+                                                }}
+                                            >
+                                                {diagnosis.riskLevel}
+                                            </span>
+                                        </p >
+                                        <p><strong>Recommendation:</strong> {diagnosis.recommendation}</p >
+
+                                        {diagnosis.outcome === 'emergency stop' && (
+                                            <p style={{ color: 'red', fontWeight: '700', marginTop: '12px' }}>
+                                                Safety warning: Stop using the device immediately.
+                                            </p >
+                                        )}
+
+                                        <p><strong>Confidence:</strong> {diagnosis.confidence ?? 'N/A'}%</p >
+                                        <p><strong>Explanation:</strong> {diagnosis.explanation ?? 'N/A'}</p >
+
+                                        {diagnosis.matchedSymptoms?.length > 0 && (
+                                            <p>
+                                                <strong>Matched Symptoms:</strong>{' '}
+                                                {diagnosis.matchedSymptoms.join(', ')}
+                                            </p >
+                                        )}
+
+                                        <div className="button-row">
+                                            <button
+                                                type="button"
+                                                className="secondary-btn"
+                                                onClick={handleConsultation}
+                                            >
+                                                Request Expert Consultation
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                className="secondary-btn"
+                                                onClick={handleReplacement}
+                                            >
+                                                View Replacement Options
+                                            </button>
+                                        </div>
+
+
+                                        <div className="card" style={{ marginTop: '16px' }}>
+                                            <h3>Diagnosis Feedback</h3>
+
+                                            <div className="field">
+                                                <label>Rating</label>
+                                                <select
+                                                    value={diagnosisFeedback.rating}
+                                                    onChange={(e) =>
+                                                        setDiagnosisFeedback({
+                                                            ...diagnosisFeedback,
+                                                            rating: e.target.value
+                                                        })
+                                                    }
+                                                >
+                                                    <option value="">Select rating</option>
+                                                    <option value="1">1 - Very Poor</option>
+                                                    <option value="2">2 - Poor</option>
+                                                    <option value="3">3 - Average</option>
+                                                    <option value="4">4 - Good</option>
+                                                    <option value="5">5 - Excellent</option>
+                                                </select>
+                                            </div>
+
+                                            <div className="field">
+                                                <label>Comments</label>
+                                                <textarea
+                                                    value={diagnosisFeedback.comments}
+                                                    onChange={(e) =>
+                                                        setDiagnosisFeedback({
+                                                            ...diagnosisFeedback,
+                                                            comments: e.target.value
+                                                        })
+                                                    }
+                                                    placeholder="Was this diagnosis helpful?"
+                                                />
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                className="secondary-btn"
+                                                onClick={submitDiagnosisFeedback}
+                                            >
+                                                Submit Diagnosis Feedback
+                                            </button>
+                                        </div>
+
+                                    </section>
+                                )}
+
+
+
+                                {consultation && (
+                                    <section className="card">
+                                        <h2>Consultation</h2>
+
+                                        <div className="result-grid">
+                                            <div className="result-box">
+                                                <span className="label">Consultation ID</span>
+                                                <span className="value">{consultation.consultationId}</span>
+                                            </div>
+
+                                            <div className="result-box">
+                                                <span className="label">Mode</span>
+                                                <span className="value">{consultation.consultationMode}</span>
+                                            </div>
+
+                                            <div className="result-box">
+                                                <span className="label">Status</span>
+                                                <span className="value">{consultation.consultationStatus}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="recommendation-box">
+                                            <p><strong>Expert:</strong> {consultation.expert?.expertName}</p >
+                                            <p><strong>Service Type:</strong> {consultation.expert?.serviceType}</p >
+                                            <p><strong>Email:</strong> {consultation.expert?.expertEmail}</p >
+                                            <p><strong>Rating:</strong> {consultation.expert?.expertRating}</p >
+
+                                            {consultation.consultationStatus === 'pending' && (
+                                                <p style={{ color: '#888' }}>
+                                                    Waiting for expert confirmation...
+                                                </p >
+                                            )}
+
+                                            {(consultation.consultationStatus === 'ready' ||
+                                                consultation.consultationStatus === 'ongoing') && (
+                                                    <>
+                                                        <p style={{ color: 'green' }}>
+                                                            Your expert is ready. You may now join the meeting.
+                                                        </p >
+
+                                                        <div>
+                                                            <p>
+                                                                <strong>Meeting Link:</strong> {consultation.meetingLink}
+                                                            </p >
+
+                                                            <button
+                                                                type="button"
+                                                                className="secondary-btn"
+                                                                onClick={() => openMeetingLink(consultation.meetingLink)}
+                                                            >
+                                                                Join Video Consultation
+                                                            </button>
+                                                        </div>
+                                                    </>
+                                                )}
+
+                                            {consultation.consultationStatus === 'completed' && (
+                                                <>
+                                                    <p style={{ color: '#555' }}>
+                                                        Consultation completed.
+                                                    </p >
+
+                                                    <div className="card" style={{ marginTop: '16px' }}>
+                                                        <h3>Consultation Feedback</h3>
+
+                                                        <div className="field">
+                                                            <label>Rating for Expert</label>
+                                                            <select
+                                                                value={consultationFeedback.rating}
+                                                                onChange={(e) =>
+                                                                    setConsultationFeedback({
+                                                                        ...consultationFeedback,
+                                                                        rating: e.target.value
+                                                                    })
+                                                                }
+                                                            >
+                                                                <option value="">Select rating</option>
+                                                                <option value="1">1 - Very Poor</option>
+                                                                <option value="2">2 - Poor</option>
+                                                                <option value="3">3 - Average</option>
+                                                                <option value="4">4 - Good</option>
+                                                                <option value="5">5 - Excellent</option>
+                                                            </select>
+                                                        </div>
+
+                                                        <div className="field">
+                                                            <label>Comments</label>
+                                                            <textarea
+                                                                value={consultationFeedback.comments}
+                                                                onChange={(e) =>
+                                                                    setConsultationFeedback({
+                                                                        ...consultationFeedback,
+                                                                        comments: e.target.value
+                                                                    })
+                                                                }
+                                                                placeholder="Tell us about the consultation experience..."
+                                                            />
+                                                        </div>
+
+                                                        <button
+                                                            type="button"
+                                                            className="secondary-btn"
+                                                            onClick={submitConsultationFeedback}
+                                                        >
+                                                            Submit Consultation Feedback
+                                                        </button>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    </section>
+                                )}
+
+                                {replacementOptions.length > 0 && (
+                                    <section className="card">
+                                        <h2>Replacement Options</h2>
+
+                                        <div className="replacement-list">
+                                            {replacementOptions.map((item) => (
+                                                <div key={item.OptionID} className="replacement-card">
+                                                    <h3>{item.ProductName}</h3>
+                                                    <p><strong>Type:</strong> {item.ProductType}</p >
+                                                    <p><strong>Price:</strong> ${item.EstimatedPrice}</p >
+                                                    <p><strong>Merchant:</strong> {item.MerchantName}</p >
+                                                    <a
+                                                        href={
+                                                            item.ProductURL?.startsWith('https://')
+                                                                ? item.ProductURL
+                                                                : `https//${item.ProductURL}`
+                                                        }
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                    >
+                                                        View Product
+                                                    </ a>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+                                )}
+                            </>
+                        )}
+
+                        {userView === 'reports-history' && (
                             <section className="card">
-                                <h2>Quick Action</h2>
+                                <h2>All Reports</h2>
+
                                 <button
                                     type="button"
-                                    className="primary-btn"
-                                    onClick={() => setUserView('report-form')}
+                                    className="secondary-btn"
+                                    onClick={() => {
+                                        setUserView('dashboard');
+                                        setSelectedReportDetail(null);
+                                    }}
                                 >
-                                    + Create New Report
+                                    Back to Dashboard
                                 </button>
-                            </section>
 
-                            <section className="card">
-                                <h2>Latest Reports</h2>
+                                <div style={{ marginTop: '16px' }}>
+                                    <input
+                                        type="text"
+                                        placeholder="Search reports..."
+                                        value={reportSearch}
+                                        onChange={(e) => setReportSearch(e.target.value)}
+                                    />
+                                </div>
 
-                                {userReports.length === 0 ? (
-                                    <p>No reports found.</p >
-                                ) : (
-                                    userReports.slice(0, 1).map((report) => (
+                                {userReports
+                                    .filter((report) =>
+                                        String(report.ReportID).includes(reportSearch) ||
+                                        (report.CategoryName || '').toLowerCase().includes(reportSearch.toLowerCase()) ||
+                                        (report.DeviceName || '').toLowerCase().includes(reportSearch.toLowerCase()) ||
+                                        (report.ProblemDescription || '').toLowerCase().includes(reportSearch.toLowerCase())
+                                    )
+                                    .map((report) => (
                                         <div key={report.ReportID} className="consultation-item">
                                             <p><strong>Report ID:</strong> {report.ReportID}</p >
                                             <p><strong>Category:</strong> {report.CategoryName}</p >
@@ -1113,501 +1802,237 @@ function App() {
                                             <p><strong>Problem:</strong> {report.ProblemDescription}</p >
                                             <p><strong>Date:</strong> {report.ReportDate}</p >
                                             <p><strong>Status:</strong> {report.Status}</p >
+
+                                            <button
+                                                type="button"
+                                                className="secondary-btn"
+                                                onClick={async () => {
+                                                    await fetchUserReportDetail(report.ReportID);
+                                                    setUserView('report-detail');
+                                                }}
+                                            >
+                                                View Detail
+                                            </button>
                                         </div>
-                                    ))
-                                )}
+                                    ))}
+
+                                {userReports.length === 0 && <p>No reports found.</p >}
+                            </section>
+                        )}
+                        {userView === 'report-detail' && (
+                            <section className="card">
+                                <h2>Report Detail - #{selectedReportDetail?.report?.ReportID}</h2>
 
                                 <button
                                     type="button"
                                     className="secondary-btn"
                                     onClick={() => setUserView('reports-history')}
                                 >
-                                    View More
+                                    Back to Report History
                                 </button>
-                            </section>
 
-                            <section className="card">
-                                <h2>Latest Results</h2>
-
-                                {userResults.length === 0 ? (
-                                    <p>No results found.</p >
+                                {reportDetailLoading ? (
+                                    <p>Loading report detail...</p >
+                                ) : !selectedReportDetail ? (
+                                    <p>No report detail found.</p >
                                 ) : (
-                                    userResults.slice(0, 1).map((result) => (
-                                        <div key={result.ResultID} className="consultation-item">
-                                            <p><strong>Result ID:</strong> {result.ResultID}</p >
-                                            <p><strong>Report ID:</strong> {result.ReportID}</p >
-                                            <p><strong>Outcome:</strong> {result.Outcome}</p >
-                                            <p><strong>Risk Level:</strong> {result.RiskLevel}</p >
-                                            <p><strong>Recommendation:</strong> {result.Recommendation}</p >
-                                            <p><strong>Date:</strong> {result.ResultDate}</p >
-                                        </div>
-                                    ))
-                                )}
-
-                                <button
-                                    type="button"
-                                    className="secondary-btn"
-                                    onClick={() => setUserView('results-history')}
-                                >
-                                    View More
-                                </button>
-                            </section>
-
-                            <section className="card">
-                                <h2>Latest Consultations</h2>
-
-                                {userConsultationHistory.length === 0 ? (
-                                    <p>No consultations found.</p >
-                                ) : (
-                                    userConsultationHistory.slice(0, 1).map((item) => (
-                                        <div key={item.ConsultationID} className="consultation-item">
-                                            <p><strong>Consultation ID:</strong> {item.ConsultationID}</p >
-                                            <p><strong>Result ID:</strong> {item.ResultID}</p >
-                                            <p><strong>Expert:</strong> {item.ExpertName}</p >
-                                            <p><strong>Service Type:</strong> {item.ServiceType}</p >
-                                            <p><strong>Status:</strong> {item.ConsultationStatus}</p >
-                                            <p><strong>Date:</strong> {item.RequestDate}</p >
-                                        </div>
-                                    ))
-                                )}
-
-                                <button
-                                    type="button"
-                                    className="secondary-btn"
-                                    onClick={() => setUserView('consultations-history')}
-                                >
-                                    View More
-                                </button>
-                            </section>
-                        </>
-                    )}
-
-                    {userView === 'report-form' && (
-                        <>
-                            <section className="card">
-                                <h2>Submit Problem Report</h2>
-
-                                <button
-                                    type="button"
-                                    className="secondary-btn"
-                                    onClick={() => setUserView('dashboard')}
-                                >
-                                    Back to Dashboard
-                                </button>
-
-                                <div className="form-grid" style={{ marginTop: '16px' }}>
-                                    <div className="field">
-                                        <label>Device Category</label>
-                                        <select
-                                            value={selectedCategory}
-                                            onChange={handleCategoryChange}
-                                        >
-                                            <option value="">Select a category</option>
-                                            {categories.map((cat) => (
-                                                <option key={cat.CategoryID} value={cat.CategoryID}>
-                                                    {cat.CategoryName}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="field">
-                                        <label>Device</label>
-                                        <select
-                                            value={selectedDevice}
-                                            onChange={handleDeviceChange}
-                                            disabled={!selectedCategory}
-                                        >
-                                            <option value="">Select a device</option>
-                                            {devices.map((device) => (
-                                                <option key={device.DeviceID} value={device.DeviceID}>
-                                                    {device.DeviceName}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="field field-full">
-                                        <label>Problem Description</label>
-                                        <textarea
-                                            value={problemDescription}
-                                            onChange={(e) => setProblemDescription(e.target.value)}
-                                            placeholder="Describe the issue..."
-                                        />
-                                    </div>
-
-                                    <div className="field field-full">
-                                        <div className="inline-row">
-                                            <label className="inline-label">Suggested Symptoms</label>
-                                            <button
-                                                type="button"
-                                                className="secondary-btn"
-                                                onClick={handleSuggestSymptoms}
-                                                disabled={suggesting}
-                                            >
-                                                {suggesting ? 'Suggesting...' : 'Suggest Symptoms'}
-                                            </button>
+                                    <>
+                                        <div className="consultation-item" style={{ marginTop: '16px' }}>
+                                            <p><strong>Report ID:</strong> {selectedReportDetail.report.ReportID}</p >
+                                            <p><strong>Category:</strong> {selectedReportDetail.report.CategoryName}</p >
+                                            <p><strong>Device:</strong> {selectedReportDetail.report.DeviceName}</p >
+                                            <p><strong>Problem:</strong> {selectedReportDetail.report.ProblemDescription}</p >
+                                            <p><strong>Report Date:</strong> {selectedReportDetail.report.ReportDate}</p >
+                                            <p><strong>Status:</strong> {selectedReportDetail.report.Status}</p >
                                         </div>
 
-                                        {suggestedSymptoms.length === 0 ? (
-                                            <div className="helper-box">
-                                                No symptoms suggested yet. Select a device and enter a
-                                                problem description first.
-                                            </div>
+                                        <h3 style={{ marginTop: '20px' }}>Uploaded Media</h3>
+                                        {selectedReportDetail.media?.length === 0 ? (
+                                            <p>No uploaded media found.</p >
                                         ) : (
-                                            <div className="checkbox-group">
-                                                {suggestedSymptoms.map((symptom) => (
-                                                    <label key={symptom.SymptomID} className="checkbox-item">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selectedSymptoms.includes(symptom.SymptomID)}
-                                                            onChange={() => toggleSymptom(symptom.SymptomID)}
-                                                        />
-                                                        <span className="checkbox-text">
-                                                            <strong>{symptom.SymptomName}</strong>
-                                                            {symptom.score !== undefined && (
-                                                                <span className="score-badge">
-                                                                    score: {Number(symptom.score).toFixed(1)}
-                                                                </span>
-                                                            )}
-                                                        </span>
-                                                    </label>
-                                                ))}
+                                            <div className="card">
+                                                    {selectedReportDetail.media.map((item) => {
+                                                        const mediaType = (item.MediaType || '').toLowerCase().trim();
+                                                        const normalizedPath = (item.MediaURL || '').replace(/\\/g, '/');
+                                                        const mediaUrl = `http://localhost:5000${normalizedPath}`;
+
+                                                        const imageTypes = [
+                                                            'image',
+                                                            'image/png',
+                                                            'image/jpeg',
+                                                            'image/jpg',
+                                                            'png',
+                                                            'jpg',
+                                                            'jpeg',
+                                                            'gif',
+                                                            'webp'
+                                                        ];
+
+                                                        const videoTypes = [
+                                                            'video',
+                                                            'video/mp4',
+                                                            'video/mov',
+                                                            'video/quicktime',
+                                                            'mp4',
+                                                            'mov',
+                                                            'avi',
+                                                            'webm'
+                                                        ];
+
+                                                        const isImage =
+                                                            imageTypes.includes(mediaType) ||
+                                                            /\.(png|jpg|jpeg|gif|webp)$/i.test(mediaUrl);
+
+                                                        const isVideo =
+                                                            videoTypes.includes(mediaType) ||
+                                                            /\.(mp4|mov|avi|webm)$/i.test(mediaUrl);
+
+                                                        return (
+                                                            <div key={item.MediaID} style={{ marginBottom: '16px' }}>
+                                                                {isImage ? (
+                                                                    <img
+                                                                        src={mediaUrl}
+                                                                        alt="Uploaded issue"
+                                                                        style={{
+                                                                            width: '220px',
+                                                                            borderRadius: '8px',
+                                                                            cursor: 'pointer'
+                                                                        }}
+                                                                        onClick={() => setPreviewImage(mediaUrl)}
+                                                                    />
+                                                                ) : isVideo ? (
+                                                                    <video width="320" controls>
+                                                                        <source src={mediaUrl} />
+                                                                        Your browser does not support video playback.
+                                                                    </video>
+                                                                ) : (
+                                                                    <p>
+                                                                        Unsupported media type: {item.MediaType} ({item.MediaURL})
+                                                                    </p >
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
                                             </div>
                                         )}
-                                    </div>
 
-                                    <div className="field field-full">
-                                        <label>Upload Photos or Video</label>
-                                        <input
-                                            type="file"
-                                            multiple
-                                            accept="image/*,video/*"
-                                            onChange={(e) => setMediaFiles(Array.from(e.target.files || []))}
-                                        />
-                                        {mediaFiles.length > 0 && (
-                                            <ul className="file-list">
-                                                {mediaFiles.map((file, index) => (
-                                                    <li key={`${file.name}-${index}`}>
-                                                        {file.name}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="button-row">
-                                    <button
-                                        type="button"
-                                        className="primary-btn"
-                                        onClick={handleSubmitAndDiagnose}
-                                        disabled={loading}
-                                    >
-                                        {loading ? 'Submitting...' : 'Submit and Diagnose'}
-                                    </button>
-                                </div>
-                            </section>
-
-                            {message && (
-                                <section className="card">
-                                    <h2>System Message</h2>
-                                    <p>{message}</p >
-                                </section>
-                            )}
-
-                            {reportId && (
-                                <section className="card">
-                                    <h2>Report Created</h2>
-                                    <p><strong>Report ID:</strong> {reportId}</p >
-                                </section>
-                            )}
-
-                            {diagnosis && (
-                                <section className="card">
-                                    <h2>Diagnosis Result</h2>
-                                    <p><strong>Result ID:</strong> {diagnosis.resultId}</p >
-                                    <p><strong>Outcome:</strong> {diagnosis.outcome}</p >
-                                    <p><strong>Risk Level:</strong> {diagnosis.riskLevel}</p >
-                                    <p><strong>Recommendation:</strong> {diagnosis.recommendation}</p >
-
-                                    <div className="button-row">
-                                        <button
-                                            type="button"
-                                            className="secondary-btn"
-                                            onClick={handleConsultation}
-                                        >
-                                            Request Expert Consultation
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            className="secondary-btn"
-                                            onClick={handleReplacement}
-                                        >
-                                            View Replacement Options
-                                        </button>
-                                    </div>
-                                </section>
-                            )}
-
-                            {consultation && (
-                                <section className="card">
-                                    <h2>Consultation</h2>
-
-                                    <div className="result-grid">
-                                        <div className="result-box">
-                                            <span className="label">Consultation ID</span>
-                                            <span className="value">{consultation.consultationId}</span>
-                                        </div>
-
-                                        <div className="result-box">
-                                            <span className="label">Mode</span>
-                                            <span className="value">{consultation.consultationMode}</span>
-                                        </div>
-
-                                        <div className="result-box">
-                                            <span className="label">Status</span>
-                                            <span className="value">{consultation.consultationStatus}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="recommendation-box">
-                                        <p><strong>Expert:</strong> {consultation.expert?.expertName}</p >
-                                        <p><strong>Service Type:</strong> {consultation.expert?.serviceType}</p >
-                                        <p><strong>Email:</strong> {consultation.expert?.expertEmail}</p >
-                                        <p><strong>Rating:</strong> {consultation.expert?.expertRating}</p >
-
-                                        {consultation.consultationStatus === 'pending' && (
-                                            <p style={{ color: '#888' }}>
-                                                Waiting for expert confirmation...
-                                            </p >
-                                        )}
-
-                                        {(consultation.consultationStatus === 'ready' ||
-                                            consultation.consultationStatus === 'ongoing') && (
-                                                <>
-                                                    <p style={{ color: 'green' }}>
-                                                        Your expert is ready. You may now join the meeting.
-                                                    </p >
-
-                                                    <div>
-                                                        <p>
-                                                            <strong>Meeting Link:</strong> {consultation.meetingLink}
-                                                        </p >
-
-                                                        <button
-                                                            type="button"
-                                                            className="secondary-btn"
-                                                            onClick={() => openMeetingLink(consultation.meetingLink)}
+                                        <h3 style={{ marginTop: '20px' }}>Diagnosis Results</h3>
+                                        {selectedReportDetail.results.length === 0 ? (
+                                            <p>No diagnosis result found.</p >
+                                        ) : (
+                                            selectedReportDetail.results.map((result) => (
+                                                <div key={result.ResultID} className="consultation-item">
+                                                    <p><strong>Result ID:</strong> {result.ResultID}</p >
+                                                    <p><strong>Outcome:</strong> {result.Outcome}</p >
+                                                    <p>
+                                                        <strong>Risk Level:</strong>{' '}
+                                                        <span
+                                                            style={{
+                                                                color:
+                                                                    result.RiskLevel === 'High'
+                                                                        ? 'red'
+                                                                        : result.RiskLevel === 'Medium'
+                                                                            ? '#d97706'
+                                                                            : 'green',
+                                                                fontWeight: '700'
+                                                            }}
                                                         >
-                                                            Join Video Consultation
-                                                        </button>
-                                                    </div>
-                                                </>
-                                            )}
+                                                            {result.RiskLevel}
+                                                        </span>
+                                                    </p >
+                                                    <p><strong>Recommendation:</strong> {result.Recommendation}</p >
+                                                    <p><strong>Confidence:</strong> {result.Confidence ?? 'N/A'}%</p >
+                                                    <p><strong>Explanation:</strong> {result.Explanation ?? 'N/A'}</p >
+                                                    <p><strong>Requires Expert:</strong> {result.RequiresExpert ? 'Yes' : 'No'}</p >
 
-                                        {consultation.consultationStatus === 'completed' && (
-                                            <p style={{ color: '#555' }}>
-                                                Consultation completed.
-                                            </p >
+                                                    {result.Outcome === 'emergency stop' && (
+                                                        <div
+                                                            style={{
+                                                                backgroundColor: '#fee2e2',
+                                                                border: '1px solid red',
+                                                                padding: '12px',
+                                                                borderRadius: '8px',
+                                                                marginTop: '12px'
+                                                            }}
+                                                        >
+                                                            <strong style={{ color: 'red' }}>
+                                                                Emergency: Stop using the device immediately.
+                                                            </strong>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))
                                         )}
-                                    </div>
-                                </section>
-                            )}
 
-                            {replacementOptions.length > 0 && (
-                                <section className="card">
-                                    <h2>Replacement Options</h2>
+                                        <h3 style={{ marginTop: '20px' }}>Consultations</h3>
+                                        {selectedReportDetail.consultations.length === 0 ? (
+                                            <p>No consultation record found.</p >
+                                        ) : (
+                                            selectedReportDetail.consultations.map((item) => (
+                                                <div key={item.ConsultationID} className="consultation-item">
+                                                    <p><strong>Consultation ID:</strong> {item.ConsultationID}</p >
+                                                    <p><strong>Expert:</strong> {item.ExpertName}</p >
+                                                    <p><strong>Service Type:</strong> {item.ServiceType}</p >
+                                                    <p><strong>Status:</strong> {item.ConsultationStatus}</p >
+                                                    <p><strong>Request Date:</strong> {item.RequestDate}</p >
+                                                    <p><strong>Consultation Date:</strong> {item.ConsultationDate || 'Not started yet'}</p >
+                                                    <p><strong>Notes:</strong> {item.ConsultationNotes || 'No notes'}</p >
+                                                </div>
+                                            ))
+                                        )}
+                                    </>
+                                )}
+                            </section>
+                        )}
 
-                                    <div className="replacement-list">
-                                        {replacementOptions.map((item) => (
-                                            <div key={item.OptionID} className="replacement-card">
-                                                <h3>{item.ProductName}</h3>
-                                                <p><strong>Type:</strong> {item.ProductType}</p >
-                                                <p><strong>Price:</strong> ${item.EstimatedPrice}</p >
-                                                <p><strong>Merchant:</strong> {item.MerchantName}</p >
-                                                <a
-                                                    href={
-                                                        item.ProductURL?.startsWith('https://')
-                                                            ? item.ProductURL
-                                                            : `https//${item.ProductURL}`
-                                                    }
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                >
-                                                    View Product
-                                                </ a>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </section>
-                            )}
-                        </>
-                    )}
+                    </>
+                )}
+                {previewImage && (
+                    <div
+                        onClick={() => setPreviewImage(null)}
+                        style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            width: '100vw',
+                            height: '100vh',
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            zIndex: 9999
+                        }}
+                    >
+                        <div
+                            style={{
+                                position: 'absolute',
+                                top: '20px',
+                                right: '30px',
+                                fontSize: '28px',
+                                color: 'white',
+                                cursor: 'pointer'
+                            }}
+                            onClick={() => setPreviewImage(null)}
+                        >
+                            X
+                        </div>
 
-                    {userView === 'reports-history' && (
-                        <section className="card">
-                            <h2>All Reports</h2>
-
-                            <button
-                                type="button"
-                                className="secondary-btn"
-                                onClick={() => setUserView('dashboard')}
-                            >
-                                Back to Dashboard
-                            </button>
-
-                            <div style={{ marginTop: '16px' }}>
-                                <input
-                                    type="text"
-                                    placeholder="Search reports..."
-                                    value={reportSearch}
-                                    onChange={(e) => setReportSearch(e.target.value)}
-                                />
-                            </div>
-
-                            {userReports
-                                .filter((report) =>
-                                    String(report.ReportID).includes(reportSearch) ||
-                                    (report.CategoryName || '').toLowerCase().includes(reportSearch.toLowerCase()) ||
-                                    (report.DeviceName || '').toLowerCase().includes(reportSearch.toLowerCase()) ||
-                                    (report.ProblemDescription || '').toLowerCase().includes(reportSearch.toLowerCase())
-                                )
-                                .map((report) => (
-                                    <div key={report.ReportID} className="consultation-item">
-                                        <p><strong>Report ID:</strong> {report.ReportID}</p >
-                                        <p><strong>Category:</strong> {report.CategoryName}</p >
-                                        <p><strong>Device:</strong> {report.DeviceName}</p >
-                                        <p><strong>Problem:</strong> {report.ProblemDescription}</p >
-                                        <p><strong>Date:</strong> {report.ReportDate}</p >
-                                        <p><strong>Status:</strong> {report.Status}</p >
-                                    </div>
-                                ))}
-
-                            {userReports.length === 0 && <p>No reports found.</p >}
-                        </section>
-                    )}
-
-                    {userView === 'results-history' && (
-                        <section className="card">
-                            <h2>All Results</h2>
-
-                            <button
-                                type="button"
-                                className="secondary-btn"
-                                onClick={() => setUserView('dashboard')}
-                            >
-                                Back to Dashboard
-                            </button>
-
-                            <div style={{ marginTop: '16px' }}>
-                                <input
-                                    type="text"
-                                    placeholder="Search results..."
-                                    value={resultSearch}
-                                    onChange={(e) => setResultSearch(e.target.value)}
-                                />
-                            </div>
-
-                            {userResults
-                                .filter((result) =>
-                                    String(result.ResultID).includes(resultSearch) ||
-                                    (result.Outcome || '').toLowerCase().includes(resultSearch.toLowerCase()) ||
-                                    (result.RiskLevel || '').toLowerCase().includes(resultSearch.toLowerCase()) ||
-                                    (result.Recommendation || '').toLowerCase().includes(resultSearch.toLowerCase())
-                                )
-                                .map((result) => (
-                                    <div key={result.ResultID} className="consultation-item">
-                                        <p><strong>Result ID:</strong> {result.ResultID}</p >
-                                        <p><strong>Report ID:</strong> {result.ReportID}</p >
-                                        <p><strong>Outcome:</strong> {result.Outcome}</p >
-                                        <p><strong>Risk Level:</strong> {result.RiskLevel}</p >
-                                        <p><strong>Recommendation:</strong> {result.Recommendation}</p >
-                                        <p><strong>Date:</strong> {result.ResultDate}</p >
-                                    </div>
-                                ))}
-
-                            {userResults.length === 0 && <p>No diagnosis results found.</p >}
-                        </section>
-                    )}
-
-                    {userView === 'consultations-history' && (
-                        <section className="card">
-                            <h2>All Consultations</h2>
-
-                            <button
-                                type="button"
-                                className="secondary-btn"
-                                onClick={() => setUserView('dashboard')}
-                            >
-                                Back to Dashboard
-                            </button>
-
-                            <div style={{ marginTop: '16px' }}>
-                                <input
-                                    type="text"
-                                    placeholder="Search consultations..."
-                                    value={consultationSearch}
-                                    onChange={(e) => setConsultationSearch(e.target.value)}
-                                />
-                            </div>
-
-                            {userConsultationHistory
-                                .filter((item) =>
-                                    String(item.ConsultationID).includes(consultationSearch) ||
-                                    (item.ExpertName || '').toLowerCase().includes(consultationSearch.toLowerCase()) ||
-                                    (item.ServiceType || '').toLowerCase().includes(consultationSearch.toLowerCase()) ||
-                                    (item.ConsultationStatus || '').toLowerCase().includes(consultationSearch.toLowerCase())
-                                )
-                                .map((item) => (
-                                    <div key={item.ConsultationID} className="consultation-item">
-                                        <p><strong>Consultation ID:</strong> {item.ConsultationID}</p >
-                                        <p><strong>Result ID:</strong> {item.ResultID}</p >
-                                        <p><strong>Expert:</strong> {item.ExpertName}</p >
-                                        <p><strong>Service Type:</strong> {item.ServiceType}</p >
-                                        <p><strong>Status:</strong> {item.ConsultationStatus}</p >
-                                        <p><strong>Request Date:</strong> {item.RequestDate}</p >
-
-                                        {(item.ConsultationStatus === 'ready' ||
-                                            item.ConsultationStatus === 'ongoing') && (
-                                                <button
-                                                    type="button"
-                                                    className="secondary-btn"
-                                                    onClick={() => openMeetingLink(item.MeetingLink)}
-                                                >
-                                                    Join Meeting
-                                                </button>
-                                            )}
-                                    </div>
-                                ))}
-
-                            {userConsultationHistory.length === 0 && <p>No consultations found.</p >}
-                        </section>
-                    )}
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="app-shell">
-            <section className="container">
-                <header className="hero">
-                    <h1>FixPath</h1>
-                    <p className="subtitle">
-                        Decision-support troubleshooting platform
-                    </p >
-                </header>
-
-              
-             
+                        <img
+                            src={previewImage}
+                            alt="Preview"
+                            style={{
+                                maxWidth: '90%',
+                                maxHeight: '90%',
+                                borderRadius: '10px'
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </div>
+                )}
             </section>
         </div>
-
-               
-       
     );
-}
-
+}    
+             
+       
 export default App;

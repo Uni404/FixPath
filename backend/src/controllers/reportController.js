@@ -7,7 +7,7 @@ const createReport = async (req, res) => {
     console.log('REQ.BODY =', req.body);
     console.log('REQ.FILES =', req.files);
 
-    // 处理 symptomIds
+    
     if (typeof symptomIds === 'string') {
         try {
             symptomIds = JSON.parse(symptomIds);
@@ -35,42 +35,42 @@ const createReport = async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        // 1. 创建 report
+        
         const [reportResult] = await connection.query(
-            `
-      INSERT INTO PROBLEM_REPORT
-      (UserID, DeviceID, ProblemDescription, DetectedRiskLevel, Status)
-      VALUES (?, ?, ?, ?, ?)
-      `,
+          `
+          INSERT INTO PROBLEM_REPORT
+          (UserID, DeviceID, ProblemDescription, DetectedRiskLevel, Status)
+          VALUES (?, ?, ?, ?, ?)
+          `,
             [userId, deviceId, problemDescription, null, 'submitted']
         );
 
         const reportId = reportResult.insertId;
 
-        // 2. 写 symptom 映射
+        
         for (const symptomId of symptomIds) {
             await connection.query(
                 `
-        INSERT INTO PROBLEM_REPORT_SYMPTOM
-        (ReportID, SymptomID, Notes)
-        VALUES (?, ?, ?)
-        `,
+                INSERT INTO PROBLEM_REPORT_SYMPTOM
+                (ReportID, SymptomID, Notes)
+                VALUES (?, ?, ?)
+                `,
                 [reportId, symptomId, null]
             );
         }
 
-        // 3. 写媒体文件
+        
         if (req.files && req.files.length > 0) {
             for (const file of req.files) {
                 const mediaType = file.mimetype.startsWith('image/') ? 'image' : 'video';
                 const mediaURL = `/uploads/${file.filename}`;
 
                 await connection.query(
-                    `
-          INSERT INTO REPORT_MEDIA
-          (ReportID, MediaType, MediaURL)
-          VALUES (?, ?, ?)
-          `,
+                  `
+                  INSERT INTO REPORT_MEDIA
+                  (ReportID, MediaType, MediaURL)
+                  VALUES (?, ?, ?)
+                  `,
                     [reportId, mediaType, mediaURL]
                 );
             }

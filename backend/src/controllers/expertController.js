@@ -64,14 +64,14 @@ const updateExpertProfile = async (req, res) => {
     try {
         await pool.query(
             `
-      UPDATE EXPERT
-      SET
-        ExpertName = ?,
-        Phone = ?,
-        ServiceType = ?,
-        AvailabilityStatus = ?
-      WHERE ExpertID = ?
-      `,
+          UPDATE EXPERT
+          SET
+            ExpertName = ?,
+            Phone = ?,
+            ServiceType = ?,
+            AvailabilityStatus = ?
+          WHERE ExpertID = ?
+          `,
             [
                 expertName,
                 phone || null,
@@ -83,18 +83,18 @@ const updateExpertProfile = async (req, res) => {
 
         const [rows] = await pool.query(
             `
-      SELECT
-        ExpertID,
-        ExpertName,
-        ExpertEmail,
-        Phone,
-        ServiceType,
-        ExpertRating,
-        AvailabilityStatus
-      FROM EXPERT
-      WHERE ExpertID = ?
-      LIMIT 1
-      `,
+          SELECT
+            ExpertID,
+            ExpertName,
+            ExpertEmail,
+            Phone,
+            ServiceType,
+            ExpertRating,
+            AvailabilityStatus
+          FROM EXPERT
+          WHERE ExpertID = ?
+          LIMIT 1
+          `,
             [expertId]
         );
 

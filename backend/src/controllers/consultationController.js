@@ -10,13 +10,13 @@ const createConsultation = async (req, res) => {
     }
 
     try {
-        // 1. Check whether result exists
+        
         const [resultRows] = await pool.query(
             `
-      SELECT *
-      FROM DECISION_RESULT
-      WHERE ResultID = ?
-      `,
+          SELECT *
+          FROM DECISION_RESULT
+          WHERE ResultID = ?
+          `,
             [resultId]
         );
 
@@ -26,26 +26,26 @@ const createConsultation = async (req, res) => {
             });
         }
 
-        // 2. Check whether an active consultation already exists
+        
         const [existingRows] = await pool.query(
             `
-      SELECT
-        c.ConsultationID,
-        c.RequestType,
-        c.ConsultationStatus,
-        c.MeetingLink,
-        c.ExpertID,
-        e.ExpertName,
-        e.ServiceType,
-        e.ExpertEmail,
-        e.ExpertRating
-      FROM CONSULTATION c
-      JOIN EXPERT e ON c.ExpertID = e.ExpertID
-      WHERE c.ResultID = ?
-        AND c.ConsultationStatus IN ('pending', 'ongoing')
-      ORDER BY c.RequestDate DESC
-      LIMIT 1
-      `,
+          SELECT
+            c.ConsultationID,
+            c.RequestType,
+            c.ConsultationStatus,
+            c.MeetingLink,
+            c.ExpertID,
+            e.ExpertName,
+            e.ServiceType,
+            e.ExpertEmail,
+            e.ExpertRating
+          FROM CONSULTATION c
+          JOIN EXPERT e ON c.ExpertID = e.ExpertID
+          WHERE c.ResultID = ?
+            AND c.ConsultationStatus IN ('pending', 'ongoing')
+          ORDER BY c.RequestDate DESC
+          LIMIT 1
+          `,
             [resultId]
         );
 
@@ -69,15 +69,15 @@ const createConsultation = async (req, res) => {
             });
         }
 
-        // 3. Find available expert
+        
         const [expertRows] = await pool.query(
             `
-      SELECT *
-      FROM EXPERT
-      WHERE AvailabilityStatus = 'Available'
-      ORDER BY ExpertRating DESC
-      LIMIT 1
-      `
+          SELECT *
+          FROM EXPERT
+          WHERE AvailabilityStatus = 'Available'
+          ORDER BY ExpertRating DESC
+          LIMIT 1
+          `
         );
 
         if (expertRows.length === 0) {
@@ -88,16 +88,16 @@ const createConsultation = async (req, res) => {
 
         const expert = expertRows[0];
 
-        // 4. Generate meeting link
+        
         const meetingLink = `https://meet.jit.si/fixpath-${resultId}-${Date.now()}`;
 
-        // 5. Insert consultation record
+        
         const [insertResult] = await pool.query(
             `
-      INSERT INTO CONSULTATION
-      (ResultID, UserID, ExpertID, RequestType, ConsultationStatus, RequestDate, ConsultationNotes, MeetingLink)
-      VALUES (?, ?, ?, ?, ?, NOW(), ?, ?)
-      `,
+          INSERT INTO CONSULTATION
+          (ResultID, UserID, ExpertID, RequestType, ConsultationStatus, RequestDate, ConsultationNotes, MeetingLink)
+          VALUES (?, ?, ?, ?, ?, NOW(), ?, ?)
+          `,
             [
                 resultId,
                 userId,
@@ -179,47 +179,47 @@ const getConsultationById = async (req, res) => {
     try {
         const [rows] = await pool.query(
             `
-        SELECT
-        c.ConsultationID,
-        c.ResultID,
-        c.UserID,
-        c.ExpertID,
-        c.RequestType,
-        c.ConsultationStatus,
-        c.RequestDate,
-        c.ConsultationDate,
-        c.ConsultationNotes,
-        c.MeetingLink,
+            SELECT
+            c.ConsultationID,
+            c.ResultID,
+            c.UserID,
+            c.ExpertID,
+            c.RequestType,
+            c.ConsultationStatus,
+            c.RequestDate,
+            c.ConsultationDate,
+            c.ConsultationNotes,
+            c.MeetingLink,
 
-        e.ExpertName,
-        e.ServiceType,
-        e.Phone,
-        e.ExpertEmail,
-        e.ExpertRating,
-        e.AvailabilityStatus,
+            e.ExpertName,
+            e.ServiceType,
+            e.Phone,
+            e.ExpertEmail,
+            e.ExpertRating,
+            e.AvailabilityStatus,
 
-        dr.ReportID,
-        dr.Outcome,
-        dr.RiskLevel,
-        dr.Recommendation,
+            dr.ReportID,
+            dr.Outcome,
+            dr.RiskLevel,
+            dr.Recommendation,
 
-        pr.ProblemDescription,
-        pr.ReportDate,
+            pr.ProblemDescription,
+            pr.ReportDate,
 
-        d.DeviceID,
-        d.DeviceName,
+            d.DeviceID,
+            d.DeviceName,
 
-        dc.CategoryID,
-        dc.CategoryName
+            dc.CategoryID,
+            dc.CategoryName
 
-      FROM CONSULTATION c
-      JOIN EXPERT e ON c.ExpertID = e.ExpertID
-      JOIN DECISION_RESULT dr ON c.ResultID = dr.ResultID
-      JOIN PROBLEM_REPORT pr ON dr.ReportID = pr.ReportID
-      JOIN DEVICE d ON pr.DeviceID = d.DeviceID
-      JOIN DEVICE_CATEGORY dc ON d.CategoryID = dc.CategoryID
-      WHERE c.ConsultationID = ?
-      `,
+          FROM CONSULTATION c
+          JOIN EXPERT e ON c.ExpertID = e.ExpertID
+          JOIN DECISION_RESULT dr ON c.ResultID = dr.ResultID
+          JOIN PROBLEM_REPORT pr ON dr.ReportID = pr.ReportID
+          JOIN DEVICE d ON pr.DeviceID = d.DeviceID
+          JOIN DEVICE_CATEGORY dc ON d.CategoryID = dc.CategoryID
+          WHERE c.ConsultationID = ?
+          `,
             [id]
         );
 
@@ -231,18 +231,18 @@ const getConsultationById = async (req, res) => {
 
         const consultation = rows[0];
 
-        // 查 report 关联的媒体
+       
         const [mediaRows] = await pool.query(
             `
-      SELECT
-        MediaID,
-        MediaType,
-        MediaURL,
-        UploadedTime
-      FROM REPORT_MEDIA
-      WHERE ReportID = ?
-      ORDER BY UploadedTime DESC
-      `,
+          SELECT
+            MediaID,
+            MediaType,
+            MediaURL,
+            UploadedTime
+          FROM REPORT_MEDIA
+          WHERE ReportID = ?
+          ORDER BY UploadedTime DESC
+          `,
             [consultation.ReportID]
         );
 
@@ -291,22 +291,22 @@ const getConsultationsByExpertId = async (req, res) => {
     try {
         const [rows] = await pool.query(
             `
-      SELECT 
-        c.ConsultationID,
-        c.ResultID,
-        c.UserID,
-        c.RequestType,
-        c.ConsultationStatus,
-        c.RequestDate,
-        c.ConsultationDate,
-        c.ConsultationNotes,
-        c.MeetingLink,
-        e.ExpertName
-      FROM CONSULTATION c
-      JOIN EXPERT e ON c.ExpertID = e.ExpertID
-      WHERE c.ExpertID = ?
-      ORDER BY c.RequestDate DESC
-      `,
+          SELECT 
+            c.ConsultationID,
+            c.ResultID,
+            c.UserID,
+            c.RequestType,
+            c.ConsultationStatus,
+            c.RequestDate,
+            c.ConsultationDate,
+            c.ConsultationNotes,
+            c.MeetingLink,
+            e.ExpertName
+          FROM CONSULTATION c
+          JOIN EXPERT e ON c.ExpertID = e.ExpertID
+          WHERE c.ExpertID = ?
+          ORDER BY c.RequestDate DESC
+          `,
             [expertId]
         );
 

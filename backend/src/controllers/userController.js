@@ -156,23 +156,23 @@ const getUserConsultations = async (req, res) => {
     try {
         const [rows] = await pool.query(
             `
-      SELECT
-        c.ConsultationID,
-        c.ResultID,
-        c.RequestType,
-        c.ConsultationStatus,
-        c.RequestDate,
-        c.ConsultationDate,
-        c.MeetingLink,
-        c.ConsultationNotes,
-        e.ExpertName,
-        e.ServiceType,
-        e.ExpertEmail
-      FROM CONSULTATION c
-      JOIN EXPERT e ON c.ExpertID = e.ExpertID
-      WHERE c.UserID = ?
-      ORDER BY c.RequestDate DESC
-      `,
+          SELECT
+            c.ConsultationID,
+            c.ResultID,
+            c.RequestType,
+            c.ConsultationStatus,
+            c.RequestDate,
+            c.ConsultationDate,
+            c.MeetingLink,
+            c.ConsultationNotes,
+            e.ExpertName,
+            e.ServiceType,
+            e.ExpertEmail
+          FROM CONSULTATION c
+          JOIN EXPERT e ON c.ExpertID = e.ExpertID
+          WHERE c.UserID = ?
+          ORDER BY c.RequestDate DESC
+          `,
             [userId]
         );
 
@@ -188,6 +188,111 @@ const getUserConsultations = async (req, res) => {
     }
 };
 
+const getUserReportDetail = async (req, res) => {
+    const { reportId } = req.params;
+
+    try {
+        const [reportRows] = await pool.query(
+            `
+            SELECT
+                r.ReportID,
+                r.UserID,
+                r.DeviceID,
+                r.ProblemDescription,
+                r.ReportDate,
+                r.DetectedRiskLevel,
+                r.Status,
+                d.DeviceName,
+                dc.CategoryName
+            FROM PROBLEM_REPORT r
+            JOIN DEVICE d ON r.DeviceID = d.DeviceID
+            JOIN DEVICE_CATEGORY dc ON d.CategoryID = dc.CategoryID
+            WHERE r.ReportID = ?
+            `,
+            [reportId]
+        );
+
+        if (reportRows.length === 0) {
+            return res.status(404).json({
+                message: 'Report not found.'
+            });
+        }
+
+        const report = reportRows[0];
+
+        const [resultRows] = await pool.query(
+            `
+            SELECT
+                ResultID,
+                ReportID,
+                RuleID,
+                Outcome,
+                Recommendation,
+                RiskLevel,
+                ResultDate,
+                Confidence,
+                Explanation,
+                RequiresExpert
+            FROM DECISION_RESULT
+            WHERE ReportID = ?
+            ORDER BY ResultDate DESC
+            `,
+            [reportId]
+        );
+
+        const [consultationRows] = await pool.query(
+            `
+            SELECT
+                c.ConsultationID,
+                c.ResultID,
+                c.RequestType,
+                c.ConsultationStatus,
+                c.RequestDate,
+                c.ConsultationDate,
+                c.MeetingLink,
+                c.ConsultationNotes,
+                e.ExpertID,
+                e.ExpertName,
+                e.ServiceType,
+                e.ExpertEmail,
+                e.ExpertRating
+            FROM CONSULTATION c
+            JOIN EXPERT e ON c.ExpertID = e.ExpertID
+            JOIN DECISION_RESULT dr ON c.ResultID = dr.ResultID
+            WHERE dr.ReportID = ?
+            ORDER BY c.RequestDate DESC
+            `,
+            [reportId]
+        );
+
+        const [mediaRows] = await pool.query(
+            `
+            SELECT
+                MediaID,
+                MediaType,
+                MediaURL,
+                UploadedTime
+            FROM REPORT_MEDIA
+            WHERE ReportID = ?
+            ORDER BY UploadedTime DESC  
+            `,
+            [reportId]
+        );
+        return res.json({
+            message: 'Report detail retrieved successfully.',
+            report,
+            media: mediaRows,
+            results: resultRows,
+            consultations: consultationRows
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: 'Failed to retrieve report detail.',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
-    getUserProfileById, updateUserProfile, getUserReports, getUserResults, getUserConsultations
+    getUserProfileById, updateUserProfile, getUserReports, getUserResults, getUserConsultations, getUserReportDetail
 };
