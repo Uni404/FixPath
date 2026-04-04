@@ -5,13 +5,6 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 
-console.log('ENV CHECK:', {
-  DB_HOST: process.env.DB_HOST,
-  DB_USER: process.env.DB_USER,
-  DB_NAME: process.env.DB_NAME,
-  PORT: process.env.PORT
-});
-
 const healthRoute = require('./routes/health');
 const reportRoute = require('./routes/report');
 const diagnoseRoute = require('./routes/diagnose');
@@ -26,11 +19,12 @@ const feedbackRoute = require('./routes/feedback');
 
 const app = express();
 
-app.use(cors());
+app.use(cors({ origin: process.env.ALLOWED_ORIGIN || 'http://localhost:3000' }));
 app.use(express.json());
 app.use(morgan('dev'));
 
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+const uploadsDir = process.env.UPLOAD_DIR || path.join(__dirname, '../uploads');
+app.use('/uploads', express.static(uploadsDir));
 
 app.use('/health', healthRoute);
 app.use('/report', reportRoute);

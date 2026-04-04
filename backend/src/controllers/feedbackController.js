@@ -129,17 +129,8 @@ const createFeedback = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('FEEDBACK ERROR FULL:', error);
-        console.error('FEEDBACK ERROR MESSAGE:', error.message);
-        console.error('FEEDBACK ERROR SQL MESSAGE:', error.sqlMessage);
-        console.error('FEEDBACK ERROR CODE:', error.code);
-
-        return res.status(500).json({
-            message: 'Failed to submit feedback.',
-            error: error.message,
-            sqlMessage: error.sqlMessage,
-            code: error.code
-        });
+        console.error('Feedback error:', error);
+        return res.status(500).json({ message: 'Failed to submit feedback.' });
     }
 };
 

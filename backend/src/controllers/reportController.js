@@ -4,10 +4,6 @@ const createReport = async (req, res) => {
     const { userId, deviceId, problemDescription } = req.body;
     let symptomIds = req.body.symptomIds;
 
-    console.log('REQ.BODY =', req.body);
-    console.log('REQ.FILES =', req.files);
-
-    
     if (typeof symptomIds === 'string') {
         try {
             symptomIds = JSON.parse(symptomIds);

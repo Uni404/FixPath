@@ -24,6 +24,8 @@ import {
 } from './api';
 import './App.css';
 
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 function App() {
 
     const [categories, setCategories] = useState([]);
@@ -1101,7 +1103,7 @@ function App() {
                                                     <div key={item.MediaID} style={{ marginBottom: '16px' }}>
                                                         {item.MediaType === 'image' ? (
                                                             <img
-                                                                src={`http://localhost:5000${item.MediaURL}`}
+                                                                src={`${API_BASE}${item.MediaURL}`}
                                                                 alt="Uploaded issue"
                                                                 style={{
                                                                     width: '220px',
@@ -1109,13 +1111,13 @@ function App() {
                                                                     cursor: 'pointer'
                                                                 }}
                                                                 onClick={() =>
-                                                                    setPreviewImage(`http://localhost:5000${item.MediaURL}`)
+                                                                    setPreviewImage(`${API_BASE}${item.MediaURL}`)
                                                                 }
                                                             />
                                                         ) : (
                                                             <video width="320" controls>
                                                                 <source
-                                                                    src={`http://localhost:5000${item.MediaURL}`}
+                                                                    src={`${API_BASE}${item.MediaURL}`}
                                                                     type="video/mp4"
                                                                 />
                                                                 Your browser does not support video playback.
@@ -1854,7 +1856,7 @@ function App() {
                                                     {selectedReportDetail.media.map((item) => {
                                                         const mediaType = (item.MediaType || '').toLowerCase().trim();
                                                         const normalizedPath = (item.MediaURL || '').replace(/\\/g, '/');
-                                                        const mediaUrl = `http://localhost:5000${normalizedPath}`;
+                                                        const mediaUrl = `${API_BASE}${normalizedPath}`;
 
                                                         const imageTypes = [
                                                             'image',
