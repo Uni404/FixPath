@@ -8,7 +8,7 @@ const getReplacementOptions = async (req, res) => {
         const [resultRows] = await pool.query(
             `
             SELECT *
-            FROM DECISION_RESULT
+            FROM decision_result
             WHERE ResultID = ?
             `,
             [resultId]
@@ -40,8 +40,8 @@ const getReplacementOptions = async (req, res) => {
                     m.MerchantName,
                     m.Website,
                     m.ContactEmail
-                FROM REPLACEMENT_OPTION r
-                JOIN MERCHANT m ON r.MerchantID = m.MerchantID
+                FROM replacement_option r
+                JOIN merchant m ON r.MerchantID = m.MerchantID
                 WHERE r.RuleID = ?
                 `,
                 [ruleId]
@@ -61,8 +61,8 @@ const getReplacementOptions = async (req, res) => {
         const [reportRows] = await pool.query(
             `
             SELECT p.ReportID, p.DeviceID
-            FROM PROBLEM_REPORT p
-            JOIN DECISION_RESULT d ON p.ReportID = d.ReportID
+            FROM problem_report p
+            JOIN decision_result d ON p.ReportID = d.ReportID
             WHERE d.ResultID = ?
             `,
             [resultId]
@@ -90,8 +90,8 @@ const getReplacementOptions = async (req, res) => {
                 m.MerchantName,
                 m.Website,
                 m.ContactEmail
-            FROM REPLACEMENT_OPTION r
-            JOIN MERCHANT m ON r.MerchantID = m.MerchantID
+            FROM replacement_option r
+            JOIN merchant m ON r.MerchantID = m.MerchantID
             WHERE r.DeviceID = ?
             `,
             [deviceId]

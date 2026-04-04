@@ -43,9 +43,9 @@ router.post('/suggest', async (req, res) => {
                 s.SymptomName,
                 s.SymptomDescription,
                 s.SeverityLevel
-            FROM DECISION_RULE dr
-            JOIN RULE_SYMPTOM rs ON dr.RuleID = rs.RuleID
-            JOIN SYMPTOM s ON rs.SymptomID = s.SymptomID
+            FROM decision_rule dr
+            JOIN rule_symptom rs ON dr.RuleID = rs.RuleID
+            JOIN symptom s ON rs.SymptomID = s.SymptomID
             WHERE dr.DeviceID = ?
             ORDER BY s.SymptomName
             `,

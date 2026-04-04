@@ -34,7 +34,7 @@ const createReport = async (req, res) => {
         
         const [reportResult] = await connection.query(
           `
-          INSERT INTO PROBLEM_REPORT
+          INSERT INTO problem_report
           (UserID, DeviceID, ProblemDescription, DetectedRiskLevel, Status)
           VALUES (?, ?, ?, ?, ?)
           `,
@@ -47,7 +47,7 @@ const createReport = async (req, res) => {
         for (const symptomId of symptomIds) {
             await connection.query(
                 `
-                INSERT INTO PROBLEM_REPORT_SYMPTOM
+                INSERT INTO problem_report_symptom
                 (ReportID, SymptomID, Notes)
                 VALUES (?, ?, ?)
                 `,
@@ -63,7 +63,7 @@ const createReport = async (req, res) => {
 
                 await connection.query(
                   `
-                  INSERT INTO REPORT_MEDIA
+                  INSERT INTO report_media
                   (ReportID, MediaType, MediaURL)
                   VALUES (?, ?, ?)
                   `,

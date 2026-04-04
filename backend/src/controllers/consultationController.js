@@ -10,11 +10,11 @@ const createConsultation = async (req, res) => {
     }
 
     try {
-        
+
         const [resultRows] = await pool.query(
             `
           SELECT *
-          FROM DECISION_RESULT
+          FROM \`decision_result\`
           WHERE ResultID = ?
           `,
             [resultId]
@@ -26,7 +26,7 @@ const createConsultation = async (req, res) => {
             });
         }
 
-        
+
         const [existingRows] = await pool.query(
             `
           SELECT
@@ -39,8 +39,8 @@ const createConsultation = async (req, res) => {
             e.ServiceType,
             e.ExpertEmail,
             e.ExpertRating
-          FROM CONSULTATION c
-          JOIN EXPERT e ON c.ExpertID = e.ExpertID
+          FROM \`consultation\` c
+          JOIN \`expert\` e ON c.ExpertID = e.ExpertID
           WHERE c.ResultID = ?
             AND c.ConsultationStatus IN ('pending', 'ongoing')
           ORDER BY c.RequestDate DESC
@@ -75,10 +75,10 @@ const createConsultation = async (req, res) => {
         // Step 1: Resolve the device category name for this diagnosis result
         const [categoryRows] = await pool.query(
             `SELECT dc.CategoryName
-             FROM DECISION_RESULT dr
-             JOIN PROBLEM_REPORT pr ON dr.ReportID = pr.ReportID
-             JOIN DEVICE d ON pr.DeviceID = d.DeviceID
-             JOIN DEVICE_CATEGORY dc ON d.CategoryID = dc.CategoryID
+             FROM \`decision_result\` dr
+             JOIN \`problem_report\` pr ON dr.ReportID = pr.ReportID
+             JOIN \`device\` d ON pr.DeviceID = d.DeviceID
+             JOIN \`device_category\` dc ON d.CategoryID = dc.CategoryID
              WHERE dr.ResultID = ?`,
             [resultId]
         );
@@ -98,7 +98,7 @@ const createConsultation = async (req, res) => {
         let expertRows = [];
         if (targetServiceType) {
             [expertRows] = await pool.query(
-                `SELECT * FROM EXPERT
+                `SELECT * FROM \`expert\`
                  WHERE ServiceType = ?
                  AND AvailabilityStatus = 'Available'
                  ORDER BY ExpertRating DESC
@@ -110,7 +110,7 @@ const createConsultation = async (req, res) => {
         // Step 4: Fallback — any available expert, highest rated
         if (expertRows.length === 0) {
             [expertRows] = await pool.query(
-                `SELECT * FROM EXPERT
+                `SELECT * FROM \`expert\`
                  WHERE AvailabilityStatus = 'Available'
                  ORDER BY ExpertRating DESC
                  LIMIT 1`
@@ -125,13 +125,13 @@ const createConsultation = async (req, res) => {
 
         const expert = expertRows[0];
 
-        
+
         const meetingLink = `https://meet.jit.si/fixpath-${resultId}-${Date.now()}`;
 
-        
+
         const [insertResult] = await pool.query(
             `
-          INSERT INTO CONSULTATION
+          INSERT INTO \`consultation\`
           (ResultID, UserID, ExpertID, RequestType, ConsultationStatus, RequestDate, ConsultationNotes, MeetingLink)
           VALUES (?, ?, ?, ?, ?, NOW(), ?, ?)
           `,
@@ -185,7 +185,7 @@ const updateConsultationStatus = async (req, res) => {
 
     await pool.query(
       `
-      UPDATE CONSULTATION
+      UPDATE \`consultation\`
       SET ConsultationStatus = ?,
           ConsultationDate = ${setConsultationDate ? 'NOW()' : 'ConsultationDate'}
       WHERE ConsultationID = ?
@@ -244,12 +244,12 @@ const getConsultationById = async (req, res) => {
             dc.CategoryID,
             dc.CategoryName
 
-          FROM CONSULTATION c
-          JOIN EXPERT e ON c.ExpertID = e.ExpertID
-          JOIN DECISION_RESULT dr ON c.ResultID = dr.ResultID
-          JOIN PROBLEM_REPORT pr ON dr.ReportID = pr.ReportID
-          JOIN DEVICE d ON pr.DeviceID = d.DeviceID
-          JOIN DEVICE_CATEGORY dc ON d.CategoryID = dc.CategoryID
+          FROM \`consultation\` c
+          JOIN \`expert\` e ON c.ExpertID = e.ExpertID
+          JOIN \`decision_result\` dr ON c.ResultID = dr.ResultID
+          JOIN \`problem_report\` pr ON dr.ReportID = pr.ReportID
+          JOIN \`device\` d ON pr.DeviceID = d.DeviceID
+          JOIN \`device_category\` dc ON d.CategoryID = dc.CategoryID
           WHERE c.ConsultationID = ?
           `,
             [id]
@@ -263,7 +263,7 @@ const getConsultationById = async (req, res) => {
 
         const consultation = rows[0];
 
-       
+
         const [mediaRows] = await pool.query(
             `
           SELECT
@@ -271,7 +271,7 @@ const getConsultationById = async (req, res) => {
             MediaType,
             MediaURL,
             UploadedTime
-          FROM REPORT_MEDIA
+          FROM \`report_media\`
           WHERE ReportID = ?
           ORDER BY UploadedTime DESC
           `,
@@ -295,7 +295,7 @@ const getConsultationById = async (req, res) => {
 const getAllConsultations = async (req, res) => {
     try {
         const [rows] = await pool.query(`
-      SELECT 
+      SELECT
         c.ConsultationID,
         c.ResultID,
         c.UserID,
@@ -303,8 +303,8 @@ const getAllConsultations = async (req, res) => {
         c.ConsultationStatus,
         c.RequestDate,
         e.ExpertName
-      FROM CONSULTATION c
-      JOIN EXPERT e ON c.ExpertID = e.ExpertID
+      FROM \`consultation\` c
+      JOIN \`expert\` e ON c.ExpertID = e.ExpertID
       ORDER BY c.RequestDate DESC
     `);
 
@@ -323,7 +323,7 @@ const getConsultationsByExpertId = async (req, res) => {
     try {
         const [rows] = await pool.query(
             `
-          SELECT 
+          SELECT
             c.ConsultationID,
             c.ResultID,
             c.UserID,
@@ -334,8 +334,8 @@ const getConsultationsByExpertId = async (req, res) => {
             c.ConsultationNotes,
             c.MeetingLink,
             e.ExpertName
-          FROM CONSULTATION c
-          JOIN EXPERT e ON c.ExpertID = e.ExpertID
+          FROM \`consultation\` c
+          JOIN \`expert\` e ON c.ExpertID = e.ExpertID
           WHERE c.ExpertID = ?
           ORDER BY c.RequestDate DESC
           `,

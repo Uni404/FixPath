@@ -7,7 +7,7 @@ const getUserProfileById = async (req, res) => {
     const [rows] = await pool.query(
       `
       SELECT UserID, Name, Email, CreatedTime
-      FROM USER
+      FROM \`user\`
       WHERE UserID = ?
       LIMIT 1
       `,
@@ -51,7 +51,7 @@ const updateUserProfile = async (req, res) => {
     try {
         await pool.query(
             `
-      UPDATE USER
+      UPDATE \`user\`
       SET Name = ?
       WHERE UserID = ?
       `,
@@ -61,7 +61,7 @@ const updateUserProfile = async (req, res) => {
         const [rows] = await pool.query(
             `
       SELECT UserID, Name, Email, CreatedTime
-      FROM USER
+      FROM \`user\`
       WHERE UserID = ?
       LIMIT 1
       `,
@@ -95,9 +95,9 @@ const getUserReports = async (req, res) => {
         r.Status,
         d.DeviceName,
         dc.CategoryName
-      FROM PROBLEM_REPORT r
-      JOIN DEVICE d ON r.DeviceID = d.DeviceID
-      JOIN DEVICE_CATEGORY dc ON d.CategoryID = dc.CategoryID
+      FROM \`problem_report\` r
+      JOIN \`device\` d ON r.DeviceID = d.DeviceID
+      JOIN \`device_category\` dc ON d.CategoryID = dc.CategoryID
       WHERE r.UserID = ?
       ORDER BY r.ReportDate DESC
       `,
@@ -130,8 +130,8 @@ const getUserResults = async (req, res) => {
         dr.Recommendation,
         dr.RiskLevel,
         dr.ResultDate
-      FROM DECISION_RESULT dr
-      JOIN PROBLEM_REPORT r ON dr.ReportID = r.ReportID
+      FROM \`decision_result\` dr
+      JOIN \`problem_report\` r ON dr.ReportID = r.ReportID
       WHERE r.UserID = ?
       ORDER BY dr.ResultDate DESC
       `,
@@ -168,8 +168,8 @@ const getUserConsultations = async (req, res) => {
             e.ExpertName,
             e.ServiceType,
             e.ExpertEmail
-          FROM CONSULTATION c
-          JOIN EXPERT e ON c.ExpertID = e.ExpertID
+          FROM \`consultation\` c
+          JOIN \`expert\` e ON c.ExpertID = e.ExpertID
           WHERE c.UserID = ?
           ORDER BY c.RequestDate DESC
           `,
@@ -204,9 +204,9 @@ const getUserReportDetail = async (req, res) => {
                 r.Status,
                 d.DeviceName,
                 dc.CategoryName
-            FROM PROBLEM_REPORT r
-            JOIN DEVICE d ON r.DeviceID = d.DeviceID
-            JOIN DEVICE_CATEGORY dc ON d.CategoryID = dc.CategoryID
+            FROM \`problem_report\` r
+            JOIN \`device\` d ON r.DeviceID = d.DeviceID
+            JOIN \`device_category\` dc ON d.CategoryID = dc.CategoryID
             WHERE r.ReportID = ?
             `,
             [reportId]
@@ -233,7 +233,7 @@ const getUserReportDetail = async (req, res) => {
                 Confidence,
                 Explanation,
                 RequiresExpert
-            FROM DECISION_RESULT
+            FROM \`decision_result\`
             WHERE ReportID = ?
             ORDER BY ResultDate DESC
             `,
@@ -256,9 +256,9 @@ const getUserReportDetail = async (req, res) => {
                 e.ServiceType,
                 e.ExpertEmail,
                 e.ExpertRating
-            FROM CONSULTATION c
-            JOIN EXPERT e ON c.ExpertID = e.ExpertID
-            JOIN DECISION_RESULT dr ON c.ResultID = dr.ResultID
+            FROM \`consultation\` c
+            JOIN \`expert\` e ON c.ExpertID = e.ExpertID
+            JOIN \`decision_result\` dr ON c.ResultID = dr.ResultID
             WHERE dr.ReportID = ?
             ORDER BY c.RequestDate DESC
             `,
@@ -272,9 +272,9 @@ const getUserReportDetail = async (req, res) => {
                 MediaType,
                 MediaURL,
                 UploadedTime
-            FROM REPORT_MEDIA
+            FROM \`report_media\`
             WHERE ReportID = ?
-            ORDER BY UploadedTime DESC  
+            ORDER BY UploadedTime DESC
             `,
             [reportId]
         );

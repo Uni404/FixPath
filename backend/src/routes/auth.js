@@ -17,7 +17,7 @@ router.post('/user-login', async (req, res) => {
     const [rows] = await pool.query(
       `
       SELECT UserID, Name, Email, PasswordHash
-      FROM USER
+      FROM user
       WHERE Email = ?
       LIMIT 1
       `,
@@ -70,7 +70,7 @@ router.post('/expert-login', async (req, res) => {
     const [rows] = await pool.query(
       `
       SELECT ExpertID, ExpertName, ExpertEmail, PasswordHash, ServiceType, ExpertRating, Phone, AvailabilityStatus
-      FROM EXPERT
+      FROM expert
       WHERE ExpertEmail = ?
       LIMIT 1
       `,

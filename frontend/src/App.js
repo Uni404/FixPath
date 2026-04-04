@@ -99,6 +99,7 @@ function App() {
     const consultationDetailRef = useRef(null);
 
     useEffect(() => {
+        if (role !== 'user') return;
         const loadCategories = async () => {
             try {
                 const res = await getDeviceCategories();
@@ -112,7 +113,7 @@ function App() {
         };
 
         loadCategories();
-    }, []);
+    }, [role]);
 
     useEffect(() => {
         if (!consultation?.consultationId) return;

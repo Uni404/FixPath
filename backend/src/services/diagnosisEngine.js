@@ -74,7 +74,7 @@ const analyzeReport = async (reportId) => {
     const [reportRows] = await pool.query(
         `
         SELECT *
-        FROM PROBLEM_REPORT
+        FROM problem_report
         WHERE ReportID = ?
         `,
         [reportId]
@@ -91,7 +91,7 @@ const analyzeReport = async (reportId) => {
     const [reportSymptomRows] = await pool.query(
         `
         SELECT SymptomID
-        FROM PROBLEM_REPORT_SYMPTOM
+        FROM problem_report_symptom
         WHERE ReportID = ?
         `,
         [reportId]
@@ -116,7 +116,7 @@ const analyzeReport = async (reportId) => {
     const [symptomRows] = await pool.query(
         `
         SELECT SymptomID, SeverityLevel, SymptomName
-        FROM SYMPTOM
+        FROM symptom
         `
     );
 
@@ -180,7 +180,7 @@ const analyzeReport = async (reportId) => {
             Priority,
             RequiresExpert,
             IsActive
-        FROM DECISION_RULE
+        FROM decision_rule
         WHERE DeviceID = ? AND IsActive = TRUE
         ORDER BY Priority ASC
         `,
@@ -206,7 +206,7 @@ const analyzeReport = async (reportId) => {
     const [ruleSymptomRows] = await pool.query(
         `
         SELECT RuleID, SymptomID
-        FROM RULE_SYMPTOM
+        FROM rule_symptom
         WHERE RuleID IN (?)
         `,
         [ruleIds]

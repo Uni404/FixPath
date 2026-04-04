@@ -15,7 +15,7 @@ const diagnoseReport = async (req, res) => {
 
         const [insertResult] = await pool.query(
             `
-            INSERT INTO DECISION_RESULT
+            INSERT INTO decision_result
             (ReportID, RuleID, Outcome, Recommendation, RiskLevel, Confidence, Explanation, RequiresExpert)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `,

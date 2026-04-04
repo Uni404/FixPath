@@ -14,7 +14,7 @@ const getExpertProfileById = async (req, res) => {
         ServiceType,
         ExpertRating,
         AvailabilityStatus
-      FROM EXPERT
+      FROM expert
       WHERE ExpertID = ?
       LIMIT 1
       `,
@@ -63,7 +63,7 @@ const updateExpertProfile = async (req, res) => {
     try {
         await pool.query(
             `
-          UPDATE EXPERT
+          UPDATE expert
           SET
             ExpertName = ?,
             Phone = ?,
@@ -88,7 +88,7 @@ const updateExpertProfile = async (req, res) => {
             ServiceType,
             ExpertRating,
             AvailabilityStatus
-          FROM EXPERT
+          FROM expert
           WHERE ExpertID = ?
           LIMIT 1
           `,

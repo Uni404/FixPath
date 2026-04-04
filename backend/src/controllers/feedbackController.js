@@ -33,7 +33,7 @@ const createFeedback = async (req, res) => {
             
             const [existing] = await pool.query(
                 `
-                SELECT * FROM FEEDBACK
+                SELECT * FROM feedback
                 WHERE FeedbackType = 'diagnosis'
                   AND ResultID = ?
                   AND UserID = ?
@@ -50,7 +50,7 @@ const createFeedback = async (req, res) => {
            
             await pool.query(
                 `
-                INSERT INTO FEEDBACK
+                INSERT INTO feedback
                 (ReportID, UserID, FeedbackType, Comments, Rating, SubmittedDate, ResultID)
                 VALUES (?, ?, ?, ?, ?, NOW(), ?)
                 `,
@@ -73,7 +73,7 @@ const createFeedback = async (req, res) => {
            
             const [existing] = await pool.query(
                 `
-                SELECT * FROM FEEDBACK
+                SELECT * FROM feedback
                 WHERE FeedbackType = 'consultation'
                   AND ConsultationID = ?
                   AND UserID = ?
@@ -90,7 +90,7 @@ const createFeedback = async (req, res) => {
             
             await pool.query(
                 `
-                INSERT INTO FEEDBACK
+                INSERT INTO feedback
                 (ReportID, UserID, FeedbackType, Comments, Rating, SubmittedDate, ConsultationID, ExpertID)
                 VALUES (?, ?, ?, ?, ?, NOW(), ?, ?)
                 `,
@@ -101,7 +101,7 @@ const createFeedback = async (req, res) => {
             const [rows] = await pool.query(
                 `
                 SELECT AVG(Rating) AS avgRating
-                FROM FEEDBACK
+                FROM feedback
                 WHERE FeedbackType = 'consultation'
                   AND ExpertID = ?
                 `,
@@ -112,7 +112,7 @@ const createFeedback = async (req, res) => {
 
             await pool.query(
                 `
-                UPDATE EXPERT
+                UPDATE expert
                 SET ExpertRating = ?
                 WHERE ExpertID = ?
                 `,
