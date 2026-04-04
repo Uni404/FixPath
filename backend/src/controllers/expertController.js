@@ -44,7 +44,6 @@ const updateExpertProfile = async (req, res) => {
     const {
         expertName,
         phone,
-        serviceType,
         availabilityStatus
     } = req.body;
 
@@ -55,9 +54,9 @@ const updateExpertProfile = async (req, res) => {
         });
     }
 
-    if (!expertName || !serviceType || !availabilityStatus) {
+    if (!expertName || !availabilityStatus) {
         return res.status(400).json({
-            message: 'expertName, serviceType, and availabilityStatus are required.'
+            message: 'expertName and availabilityStatus are required.'
         });
     }
 
@@ -68,14 +67,12 @@ const updateExpertProfile = async (req, res) => {
           SET
             ExpertName = ?,
             Phone = ?,
-            ServiceType = ?,
             AvailabilityStatus = ?
           WHERE ExpertID = ?
           `,
             [
                 expertName,
                 phone || null,
-                serviceType,
                 availabilityStatus,
                 expertId
             ]

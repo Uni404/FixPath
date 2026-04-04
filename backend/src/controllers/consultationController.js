@@ -69,20 +69,57 @@ const createConsultation = async (req, res) => {
             });
         }
 
-        
-        const [expertRows] = await pool.query(
-            `
-          SELECT *
-          FROM EXPERT
-          WHERE AvailabilityStatus = 'Available'
-          ORDER BY ExpertRating DESC
-          LIMIT 1
-          `
+
+        // --- Expert Assignment Logic ---
+
+        // Step 1: Resolve the device category name for this diagnosis result
+        const [categoryRows] = await pool.query(
+            `SELECT dc.CategoryName
+             FROM DECISION_RESULT dr
+             JOIN PROBLEM_REPORT pr ON dr.ReportID = pr.ReportID
+             JOIN DEVICE d ON pr.DeviceID = d.DeviceID
+             JOIN DEVICE_CATEGORY dc ON d.CategoryID = dc.CategoryID
+             WHERE dr.ResultID = ?`,
+            [resultId]
         );
+
+        const categoryName = categoryRows[0]?.CategoryName || '';
+
+        // Step 2: Map category name to the expected expert ServiceType
+        const categoryToServiceType = {
+            'Cleaning Equipment': 'Cleaning Equipment Support',
+            'Home Appliance':     'Electrical Appliance Support',
+            'Plumbing Fixture':   'Plumbing & Fixture Support',
+        };
+
+        const targetServiceType = categoryToServiceType[categoryName] || null;
+
+        // Step 3: Primary query — exact ServiceType match, available, highest rated
+        let expertRows = [];
+        if (targetServiceType) {
+            [expertRows] = await pool.query(
+                `SELECT * FROM EXPERT
+                 WHERE ServiceType = ?
+                 AND AvailabilityStatus = 'Available'
+                 ORDER BY ExpertRating DESC
+                 LIMIT 1`,
+                [targetServiceType]
+            );
+        }
+
+        // Step 4: Fallback — any available expert, highest rated
+        if (expertRows.length === 0) {
+            [expertRows] = await pool.query(
+                `SELECT * FROM EXPERT
+                 WHERE AvailabilityStatus = 'Available'
+                 ORDER BY ExpertRating DESC
+                 LIMIT 1`
+            );
+        }
 
         if (expertRows.length === 0) {
             return res.status(404).json({
-                message: 'No available expert found at the moment.'
+                message: 'No available expert found at the moment. Please try again later.'
             });
         }
 
@@ -144,26 +181,21 @@ const updateConsultationStatus = async (req, res) => {
   }
 
   try {
-    let consultationDate = null;
-
-    
-    if (status === 'ongoing' || status === 'completed') {
-      consultationDate = new Date();
-    }
+    const setConsultationDate = status === 'ongoing' || status === 'completed';
 
     await pool.query(
       `
       UPDATE CONSULTATION
-      SET ConsultationStatus = ?, ConsultationDate = ?
+      SET ConsultationStatus = ?,
+          ConsultationDate = ${setConsultationDate ? 'NOW()' : 'ConsultationDate'}
       WHERE ConsultationID = ?
       `,
-      [status, consultationDate, id]
+      [status, id]
     );
 
     return res.json({
       message: 'Consultation status updated successfully.',
-      status,
-      consultationDate
+      status
     });
   } catch (error) {
     return res.status(500).json({
