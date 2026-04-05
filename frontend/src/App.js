@@ -73,8 +73,8 @@ function App() {
         name: ''
     });
     const [userReports, setUserReports] = useState([]);
-    const [userResults, setUserResults] = useState([]);
-    const [userConsultationHistory, setUserConsultationHistory] = useState([]);
+    const [, setUserResults] = useState([]);
+    const [, setUserConsultationHistory] = useState([]);
     const [userView, setUserView] = useState('dashboard');
     const [reportSearch, setReportSearch] = useState('');
     //const [resultSearch, setResultSearch] = useState('');
@@ -451,15 +451,6 @@ function App() {
                 'Failed to retrieve replacement options.'
             );
         }
-    };
-
-    const getRiskClass = (riskLevel) => {
-        const risk = (riskLevel || '').toLowerCase();
-
-        if (risk.includes('high')) return 'risk-high';
-        if (risk.includes('medium')) return 'risk-medium';
-        if (risk.includes('low')) return 'risk-low';
-        return 'risk-neutral';
     };
 
     const openMeetingLink = (link) => {
