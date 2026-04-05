@@ -1392,7 +1392,7 @@ function App() {
                         {userView === 'dashboard' && (
                             <>
 
-                                <button onClick={fetchConsultations}>Refresh</button>
+                                <button onClick={() => fetchUserHistory(profile?.id)}>Refresh</button>
                                 <button
                                     onClick={() => {
                                         setRole(null);

@@ -1,0 +1,157 @@
+FixPath
+A Decision-First Troubleshooting Platform for Everyday Problems
+Haoyu Xiong (817032)
+
+1. Introduction
+In everyday life, people frequently encounter problems with common devices and household fixtures such as computers, toilets, and other appliances. When these issues occur, users often struggle not because they lack repair skills, but because they are uncertain about the correct next step. Online searches typically provide fragmented information, while professional services may be costly or unnecessary for certain situations.
+FixPath is proposed as a decision-support platform that helps users determine whether a problem should be repaired, replaced, or escalated to professional service. Rather than optimizing for speed or convenience, the system prioritizes decision correctness, safety, and clarity. By guiding users through structured decision paths, FixPath reduces uncertainty, prevents unsafe actions, and helps users avoid costly trial-and-error decisions.
+
+2. Problem Statement
+When daily-life problems occur, users face several challenges:
+	Lack of clarity on whether an issue is repairable or requires replacement
+	Difficulty identifying compatible replacement parts or devices
+	Risk of unsafe actions when dealing with electrical, plumbing, or structural issues
+	Inefficient use of time and money due to incorrect or premature decisions
+Existing solutions such as search engines, video platforms, or e-commerce websites provide information or products, but they do not offer structured decision guidance. As a result, users may attempt unsafe repairs, make incompatible purchases, or unnecessarily hire professional services.
+
+2.5 Why Not Call an Expert Directly?
+When facing daily-life issues, users may choose to contact a professional immediately. While this approach can be effective, it is often premature and costly when the necessity of expert intervention is unclear.
+Experts are valuable but limited resources. Contacting them without prior assessment may result in unnecessary service fees, over-repair, or miscommunication. In many cases, the correct action is not to repair, but to stop, replace, or reassess the situation.
+FixPath addresses this gap by helping users make informed decisions before involving professionals. By clarifying whether expert intervention is necessary, the platform reduces unnecessary escalation, improves service efficiency, and ensures that professional expertise is applied only when appropriate.
+
+3. Proposed Solution
+FixPath addresses these challenges by acting as a decision-first troubleshooting platform. The system guides users through structured input, including device selection, problem description, symptom selection, and optional media upload.
+The system is designed around a rule-based diagnosis engine that evaluates user input and classifies each case into one of the following outcomes:
+	Guided self-repair for low-risk scenarios  
+	Replacement recommendation  
+	Expert consultation when professional assistance is required  
+	Emergency stop when high-risk indicators are detected  
+To support this workflow, FixPath includes several core components:
+	A user interface for structured problem submission and result visualization  
+	A rule-based diagnosis engine that evaluates symptoms and determines outcomes  
+	A consultation module that connects users with available experts when escalation is required  
+	A replacement module that provides product options and redirects users to external merchant platforms  
+	A media support mechanism that allows users to upload images or videos to improve problem clarity  
+The system prioritizes decision correctness and safety by avoiding uncertain recommendations and escalating ambiguous or high-risk cases.
+
+3.5 Rule-Based Decision Systems in Practice
+Rule-based decision systems are widely used in real-world applications where structured guidance is required before professional intervention. These systems operate by applying predefined rules to user-provided information in order to recommend appropriate actions.
+One common example is medical symptom-checking platforms such as WebMD and similar online health assessment tools. These systems guide users through structured questions and apply rule-based logic to determine whether the user should attempt self-care, consult a doctor, or seek emergency assistance. Although these systems do not replace professional professionals, they help users make preliminary decisions before pursuing professional care.
+Another example can be found in tax preparation software such as TurboTax, which relies heavily on rule-based engines to guide users through complex regulatory frameworks. Based on user responses, the system applies predefined tax rules to determine deductions, eligibility criteria, and filing outcomes.
+In consumer technology support, device manufacturers frequently use automated troubleshooting systems that follow rule-based diagnostic paths. For example, users may be guided through structured troubleshooting steps that help identify issues such as power failures, connectivity problems, or configuration errors before contacting technical support.
+These examples demonstrate that rule-based decision systems can provide practical value when they are designed with clearly defined safety boundaries. Such systems typically avoid making decisions in high-risk scenarios and instead escalate cases to professional experts.
+FixPath adopts a similar approach. The platform provides structured decision guidance for low-risk troubleshooting scenarios while escalating complex or potentially unsafe cases to professional service providers. By combining rule-based decision logic with expert escalation, the system balances automation, safety, and practical usability.
+In addition, the platform is designed as a decision-support system rather than an automated repair authority. The system provides structured troubleshooting guidance based on user-provided information but does not replace professional technical services.
+Responsibility for physical repair actions remains with the user or the professional service provider when expert consultation is involved. By limiting automated recommendations to low-risk troubleshooting steps and escalating uncertain or hazardous situations to experts, the system reduces potential liability while still providing useful decision support.
+
+4. System Overview
+FixPath is centered on user-facing decision support and intentionally separates decision-making from execution.
+The system boundary includes:
+	Problem categorization by domain and device
+	Structured issue description and input validation
+	Decision classification and safety assessment
+	Next-step guidance for repair, replacement, or service
+External systems, such as merchant platforms and professional service providers, handle transactions and physical execution. FixPath does not perform repairs, sell products, or supervise services.
+
+4.5 High-Level Workflow
+The FixPath system follows a structured decision workflow:
+1)	The user selects a device category and device, then describes the issue and selects relevant symptoms.
+2)	The user may upload supporting media to provide additional context.
+3)	The system processes the input through a rule-based diagnosis engine.
+4)	Based on the evaluation, the system generates a diagnosis result with a risk level and recommended action.
+5)	The user is guided to the appropriate next step, including self-repair guidance, expert consultation, or replacement options.
+6)	If expert consultation is requested, the system assigns an available expert and tracks the consultation process.
+
+5. Decision Safety and Risk Handling
+FixPath incorporates explicit mechanisms to ensure safe and responsible decision-making.
+Risk is assessed using conservative, rule-based thresholds based on:
+	Problem domain (e.g., electrical, plumbing, structural issues are treated as higher risk)
+	Observable symptoms (e.g., leaks, sparks, abnormal heat, instability)
+	Information sufficiency (e.g., missing device details or conflicting user input)
+When risk indicators or insufficient information are detected, the system prevents self-repair guidance and escalates the case to professional service or halts the decision process entirely. This design prioritizes safety over completeness and avoids unsafe recommendations. The system also avoids producing recommendations in cases where multiple decision rules produce similar outcomes, and instead escalates such cases to expert consultation.
+
+6. Functional Requirements
+The system shall provide the following core functionalities:
+	Allow users to browse problem categories by domain (e.g., computers, bathroom fixtures)
+	Enable users to select devices and, when applicable, manufacturers and models
+	Collect structured user input describing the issue
+	Classify the issue into repair, replacement, professional service, or uncertain paths
+	Provide guided self-repair instructions only for low-risk, repairable cases
+	Recommend professional service when expert intervention is required
+	Present compatible replacement options when replacement is appropriate
+	Provide clear next-step guidance for each decision outcome
+	Collect post-resolution user feedback to support system improvement
+	Allow users to upload supporting media (images or videos) to enhance problem description  
+	Enable users to view detailed diagnosis results, including explanations and recommendations  
+	Allow users to request expert consultation and track consultation status  
+	Allow users to view historical reports and consultation records 
+
+7. Non-Functional Requirements
+The system shall satisfy the following non-functional requirements:
+	Usability: The interface must be intuitive and accessible to non-technical users
+	Safety: The platform must explicitly discourage unsafe actions and prioritize user well-being
+	Performance: Decision results should be delivered with minimal response time
+	Scalability: The architecture must support growth in users, devices, and decision paths
+	Security: User data must be handled securely and responsibly
+
+8. Use Case Overview
+ 
+The primary actor of the system is the User, who interacts with FixPath to receive decision guidance.
+Secondary actors include:
+	Expert: An independent professional service provider
+	Merchant: An external replacement or product provider
+At a system level, the core use cases include:
+	Browsing problem categories
+	Selecting devices and models
+	Describing issues
+	Viewing decision results
+	Receiving next-step guidance
+	Following guided self-repair instructions
+	Requesting professional service
+	Redirecting to merchant platforms
+	Submitting post-resolution feedback
+These use cases reflect the structured workflow implemented in the system, where users move from problem reporting to diagnosis, and then to appropriate resolution paths such as self-repair, expert consultation, or replacement.
+
+9. Expert and Responsibility Boundary
+Experts engaged through FixPath are independent service providers. The platform facilitates decision guidance and service requests but does not perform, supervise, or guarantee service execution.
+Any outcomes related to professional services, including quality, safety, or liability, remain the responsibility of the service provider and the user, in accordance with applicable laws and agreements. FixPath uses user feedback to monitor service quality but does not act as a dispute resolution or compensation authority. All system recommendations are generated based on predefined rules and user-provided information, and may not fully reflect real-world conditions.
+
+10. Emergency Handling
+FixPath is not designed to support emergency scenarios. When emergency indicators are detected (such as gas leaks, electrical hazards, or immediate safety threats), the system immediately halts decision guidance and directs users to appropriate emergency services.
+This explicit exclusion prevents misuse of the platform in time-critical or dangerous situations.
+
+11. Revenue Model
+FixPath monetizes only after a decision has been made. Revenue is generated from downstream actions triggered by high-intent decisions, such as professional service engagement or verified replacement needs. This approach ensures that monetization aligns with user intent rather than interrupting the diagnostic process.
+FixPath adopts a lightweight monetization strategy that separates decision-making from execution:
+
+	Freemium Access:  
+Core decision-support features are provided free of charge to maximize accessibility and encourage user adoption.
+	Optional Expert Consultation: 
+Users may choose paid expert confirmation or on-site services when professional assistance is required.
+	Service Commission: 
+FixPath earns a commission when professional services are successfully booked through the platform.
+	Partner Redirection and Affiliate Collaboration:  
+Once a replacement decision is made, users are redirected to relevant product links on trusted partner platforms, generating affiliate-based revenue.
+Because decisions are generated before monetization occurs, FixPath captures value from users who have already determined their next action, improving conversion efficiency.
+Additionally, these partnerships do not influence system decision logic or outcomes, preserving the neutrality and reliability of the platform.
+
+12. Competitive Positioning and Economic Value
+While several platforms provide repair tutorials or technician marketplaces, FixPath focuses on the decision stage that occurs before repair or replacement actions are taken.
+Existing solutions generally fall into three categories. Community-based platforms such as online forums or tutorial websites provide large amounts of troubleshooting information, but the advice may be inconsistent and often lacks safety evaluation. Manufacturer troubleshooting systems provide structured diagnostic processes but typically support only specific brands or devices. Service marketplaces connect users with technicians but require users to commit to paid services without first determining the nature of the problem.
+FixPath addresses a different stage of the problem-solving process by acting as a decision-first troubleshooting platform. Instead of immediately directing users toward repair services, the system helps users determine whether a problem can be resolved through simple troubleshooting, requires professional repair, or should lead to replacement.
+By guiding users through structured decision processes, the platform reduces unnecessary repair costs, prevents unsafe troubleshooting attempts, and helps users make more informed decisions before committing to service expenses or replacement purchases.
+This positioning allows FixPath to complement existing repair services rather than directly compete with them. The platform acts as a decision-support layer that connects users, experts, and merchants in a structured troubleshooting workflow.
+The platform is designed to reduce unnecessary repair costs and help users determine the most appropriate course of action before committing to repair services or replacement purchases.
+
+13. Scope and Limitations
+FixPath intentionally limits its scope to decision support. The platform does not:
+	Perform physical repairs
+	Sell products directly
+	Guarantee service outcomes
+	Influence decisions based on commercial relationships
+	Handle emergency situations or real-time crisis response
+These constraints preserve system neutrality, safety, and clarity.
+
+14. Conclusion
+FixPath proposes a structured, conservative, and safety-oriented approach to daily-life troubleshooting. By focusing on decision integrity rather than repair execution, the platform reduces uncertainty, prevents unsafe actions, and enables users to make better-informed choices.
+The proposed system is technically feasible, responsibly scoped, and aligned with core software engineering principles, making it suitable for real-world deployment and future expansion.
