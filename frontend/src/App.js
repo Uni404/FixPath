@@ -893,6 +893,52 @@ function App() {
 
 
 
+    const getStatusBadgeStyle = (status) => {
+        const base = {
+            display: 'inline-block',
+            padding: '3px 12px',
+            borderRadius: '999px',
+            fontWeight: '700',
+            fontSize: '13px',
+            letterSpacing: '0.03em',
+            textTransform: 'capitalize',
+        };
+        switch ((status || '').toLowerCase()) {
+            case 'pending':
+                return { ...base, background: '#fef3c7', color: '#92400e', border: '1px solid #fbbf24' };
+            case 'ready':
+            case 'ongoing':
+                return { ...base, background: '#dbeafe', color: '#1e40af', border: '1px solid #93c5fd' };
+            case 'completed':
+                return { ...base, background: '#d1fae5', color: '#065f46', border: '1px solid #6ee7b7' };
+            case 'cancelled':
+            case 'failed':
+                return { ...base, background: '#f3f4f6', color: '#6b7280', border: '1px solid #d1d5db' };
+            default:
+                return { ...base, background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db' };
+        }
+    };
+
+    const getRiskBadgeStyle = (risk) => {
+        const base = {
+            display: 'inline-block',
+            padding: '3px 12px',
+            borderRadius: '999px',
+            fontWeight: '700',
+            fontSize: '13px',
+        };
+        switch ((risk || '').toLowerCase()) {
+            case 'high':
+                return { ...base, background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5' };
+            case 'medium':
+                return { ...base, background: '#fef3c7', color: '#92400e', border: '1px solid #fbbf24' };
+            case 'low':
+                return { ...base, background: '#d1fae5', color: '#065f46', border: '1px solid #6ee7b7' };
+            default:
+                return { ...base, background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db' };
+        }
+    };
+
     return (
         <div className="app-shell">
             <section className="container">
@@ -1099,7 +1145,12 @@ function App() {
                                         <div className="consultation-item">
                                             <p><strong>Consultation ID:</strong> {consultations[0].ConsultationID}</p >
                                             <p><strong>Result ID:</strong> {consultations[0].ResultID}</p >
-                                            <p><strong>Status:</strong> {consultations[0].ConsultationStatus}</p >
+                                            <p style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <strong>Status:</strong>
+                                                <span style={getStatusBadgeStyle(consultations[0].ConsultationStatus)}>
+                                                    {consultations[0].ConsultationStatus}
+                                                </span>
+                                            </p>
                                             <p><strong>Request Date:</strong> {consultations[0].RequestDate}</p >
 
                                             <div className="button-row">
@@ -1161,12 +1212,30 @@ function App() {
                                         <p><strong>User ID:</strong> {selectedConsultation.UserID}</p >
                                         <p><strong>Category:</strong> {selectedConsultation.CategoryName}</p >
                                         <p><strong>Device:</strong> {selectedConsultation.DeviceName}</p >
-                                        <p><strong>Problem Report:</strong> {selectedConsultation.ProblemDescription}</p >
+                                        <div style={{ margin: '12px 0' }}>
+                                            <p style={{ margin: '0 0 6px' }}><strong>Problem Report</strong></p>
+                                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderLeft: '4px solid #64748b', borderRadius: '6px', padding: '10px 14px', color: '#1e293b', fontSize: '14px', lineHeight: '1.6' }}>
+                                                {selectedConsultation.ProblemDescription}
+                                            </div>
+                                        </div>
+
                                         <p><strong>Report Date:</strong> {selectedConsultation.ReportDate}</p >
 
                                         <p><strong>Diagnosis Outcome:</strong> {selectedConsultation.Outcome}</p >
-                                        <p><strong>Risk Level:</strong> {selectedConsultation.RiskLevel}</p >
-                                        <p><strong>Recommendation:</strong> {selectedConsultation.Recommendation}</p >
+
+                                        <p style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <strong>Risk Level:</strong>
+                                            <span style={getRiskBadgeStyle(selectedConsultation.RiskLevel)}>
+                                                {selectedConsultation.RiskLevel}
+                                            </span>
+                                        </p>
+
+                                        <div style={{ margin: '12px 0' }}>
+                                            <p style={{ margin: '0 0 6px' }}><strong>Recommendation</strong></p>
+                                            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '4px solid #22c55e', borderRadius: '6px', padding: '10px 14px', color: '#14532d', fontSize: '14px', lineHeight: '1.6' }}>
+                                                {selectedConsultation.Recommendation}
+                                            </div>
+                                        </div>
 
                                         {selectedConsultation.media?.length > 0 && (
                                             <div className="card">
@@ -1202,7 +1271,12 @@ function App() {
                                         )}
                                             
                                         <p><strong>Service Type:</strong> {selectedConsultation.ServiceType}</p >
-                                        <p><strong>Status:</strong> {selectedConsultation.ConsultationStatus}</p >
+                                        <p style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <strong>Status:</strong>
+                                            <span style={getStatusBadgeStyle(selectedConsultation.ConsultationStatus)}>
+                                                {selectedConsultation.ConsultationStatus}
+                                            </span>
+                                        </p>
                                         <p><strong>Request Type:</strong> {selectedConsultation.RequestType}</p >
                                         <p><strong>Request Date:</strong> {selectedConsultation.RequestDate}</p >
                                         <p><strong>Consultation Date:</strong> {selectedConsultation.ConsultationDate || 'Not started yet'}</p >
