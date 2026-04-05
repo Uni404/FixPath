@@ -102,6 +102,15 @@ function App() {
     const retryTimerRef = useRef(null);
     const retryCountRef = useRef(0);
 
+    const clearRetryTimer = useCallback(() => {
+        if (retryTimerRef.current) {
+            clearTimeout(retryTimerRef.current);
+            retryTimerRef.current = null;
+        }
+        retryCountRef.current = 0;
+        setIsRetrying(false);
+    }, []);
+
     useEffect(() => {
         if (role !== 'user') return;
         const loadCategories = async () => {
@@ -479,15 +488,6 @@ function App() {
 
         window.open(link, '_blank');
     };
-
-    const clearRetryTimer = useCallback(() => {
-        if (retryTimerRef.current) {
-            clearTimeout(retryTimerRef.current);
-            retryTimerRef.current = null;
-        }
-        retryCountRef.current = 0;
-        setIsRetrying(false);
-    }, []);
 
     const scheduleConsultationRetry = useCallback((resultId, userId) => {
         const MAX_RETRIES = 5;
@@ -1645,13 +1645,17 @@ function App() {
                                         </div>
 
                                         {consultationError && (
-                                            <div style={{ marginTop: '10px', padding: '12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px' }}>
-                                                <p style={{ margin: '0 0 8px', color: '#b91c1c', fontWeight: '600' }}>
+                                            <div style={{
+                                                marginTop: '10px', padding: '12px', borderRadius: '10px',
+                                                background: isRetrying ? '#eff6ff' : '#fef2f2',
+                                                border: `1px solid ${isRetrying ? '#bfdbfe' : '#fecaca'}`
+                                            }}>
+                                                <p style={{ margin: '0 0 8px', fontWeight: '600', color: isRetrying ? '#1d4ed8' : '#b91c1c' }}>
                                                     {consultationError}
-                                                </p >
+                                                </p>
                                                 <p style={{ margin: '0 0 8px', color: '#374151', fontSize: '14px' }}>
-                                                    Please wait for an expert to become available and try again.
-                                                </p >
+                                                    {isRetrying ? 'The system is retrying automatically.' : 'Please try again manually.'}
+                                                </p>
                                                 <button
                                                     type="button"
                                                     className="secondary-btn"
