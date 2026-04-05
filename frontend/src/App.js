@@ -459,7 +459,7 @@ function App() {
             return;
         }
 
-        window.open(link, '_blank', 'noopener,noreferrer');
+        window.open(link, '_blank');
     };
 
 
@@ -522,6 +522,12 @@ function App() {
 
 
     const confirmAndOpenMeeting = async (consultationItem) => {
+        if (consultationItem.MeetingLink) {
+            openMeetingLink(consultationItem.MeetingLink);
+        } else {
+            setMessage('Meeting link is missing.');
+        }
+
         try {
             await updateConsultationStatus(consultationItem.ConsultationID, 'ready');
 
@@ -534,13 +540,6 @@ function App() {
                 selectedConsultation.ConsultationID === consultationItem.ConsultationID
             ) {
                 await fetchConsultationDetail(consultationItem.ConsultationID);
-            }
-
-
-            if (consultationItem.MeetingLink) {
-                openMeetingLink(consultationItem.MeetingLink);
-            } else {
-                setMessage('Meeting link is missing.');
             }
 
         } catch (error) {
