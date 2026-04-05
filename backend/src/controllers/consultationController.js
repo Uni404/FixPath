@@ -126,7 +126,7 @@ const createConsultation = async (req, res) => {
         const expert = expertRows[0];
 
 
-        const meetingLink = `https://meet.jit.si/fixpath-${resultId}-${Date.now()}`;
+        const meetingLink = `https://meet.ffmuc.net/fixpath-${resultId}-${Date.now()}`;
 
 
         const [insertResult] = await pool.query(
