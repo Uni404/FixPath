@@ -4,7 +4,7 @@ INSERT INTO `user` VALUES (1,'Micheal','micheal@example.com','$2b$10$09bnzTaIxvq
 
 INSERT INTO `device_category` VALUES (1,'Cleaning Equipment','Home cleaning devices'),(2,'Home Appliance','Household electrical appliances'),(3,'Plumbing Fixture','Bathroom or kitchen water fixtures');
 
-INSERT INTO `expert` VALUES (1,'alex chen','Electrical Appliance Support','098766431231','alex@example.com',3.2,'Available','$2b$10$vSplsLvH1nFBK5QKM9uvQeOpOz7uXVIND0biI/tr3WhAeeVIX7c3S'),(2,'Sarah Liu','Home Fixture Support','234-567-8901','sarah@example.com',4.7,'Busy','$2b$10$gAZz79GqnMuqaGQzA7ymSusqqeklYuF0rN0F2K3q.HmIuY32jnDu2');
+INSERT INTO `expert` VALUES (1,'alex chen','Electrical Appliance Support','098766431231','alex@example.com',3.2,'Available','$2b$10$vSplsLvH1nFBK5QKM9uvQeOpOz7uXVIND0biI/tr3WhAeeVIX7c3S'),(2,'Sarah Liu','Plumbing & Fixture Support','234-567-8901','sarah@example.com',4.7,'Busy','$2b$10$gAZz79GqnMuqaGQzA7ymSusqqeklYuF0rN0F2K3q.HmIuY32jnDu2');
 
 INSERT INTO `merchant` VALUES (1,'Amazon','https://www.amazon.com','support@amazon.com'),(2,'Best Buy','https://www.bestbuy.com','support@bestbuy.com'),(3,'Home Depot','https://www.homedepot.ca','support@hdepot.com');
 

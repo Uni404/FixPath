@@ -107,19 +107,9 @@ const createConsultation = async (req, res) => {
             );
         }
 
-        // Step 4: Fallback — any available expert, highest rated
-        if (expertRows.length === 0) {
-            [expertRows] = await pool.query(
-                `SELECT * FROM \`expert\`
-                 WHERE AvailabilityStatus = 'Available'
-                 ORDER BY ExpertRating DESC
-                 LIMIT 1`
-            );
-        }
-
         if (expertRows.length === 0) {
             return res.status(404).json({
-                message: 'No available expert found at the moment. Please try again later.'
+                message: 'No available expert found for this device category. Please try again later.'
             });
         }
 
