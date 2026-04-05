@@ -72,7 +72,7 @@ When risk indicators or insufficient information are detected, the system preven
 
 6. Functional Requirements
 The system shall provide the following core functionalities:
-	Allow users to browse problem categories by domain (e.g., computers, bathroom fixtures)
+	Allow users to browse problem categories by domain (e.g., home appliances, cleaning equipment, plumbing fixtures).
 	Enable users to select devices and, when applicable, manufacturers and models
 	Collect structured user input describing the issue
 	Classify the issue into repair, replacement, professional service, or uncertain paths
@@ -81,6 +81,7 @@ The system shall provide the following core functionalities:
 	Present compatible replacement options when replacement is appropriate
 	Provide clear next-step guidance for each decision outcome
 	Collect post-resolution user feedback to support system improvement
+	Provide keyword-based symptom suggestions to assist users in identifying and selecting relevant symptoms based on their problem description.
 	Allow users to upload supporting media (images or videos) to enhance problem description  
 	Enable users to view detailed diagnosis results, including explanations and recommendations  
 	Allow users to request expert consultation and track consultation status  
@@ -93,6 +94,7 @@ The system shall satisfy the following non-functional requirements:
 	Performance: Decision results should be delivered with minimal response time
 	Scalability: The architecture must support growth in users, devices, and decision paths
 	Security: User data must be handled securely and responsibly
+	Maintainability: The system architecture and database design must support future extension of devices, decision rules, experts, and features without requiring structural redesign
 
 8. Use Case Overview
  

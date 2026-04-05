@@ -37,6 +37,7 @@ function App() {
 
     const [suggestedSymptoms, setSuggestedSymptoms] = useState([]);
     const [selectedSymptoms, setSelectedSymptoms] = useState([]);
+    const [suggestAttempted, setSuggestAttempted] = useState(false);
 
     const [mediaFiles, setMediaFiles] = useState([]);
 
@@ -179,6 +180,7 @@ function App() {
         setConsultationError('');
         setSuggestedSymptoms([]);
         setSelectedSymptoms([]);
+        setSuggestAttempted(false);
         setDiagnosis(null);
         setConsultation(null);
         setReplacementOptions([]);
@@ -311,6 +313,7 @@ function App() {
         }
 
         setSuggesting(true);
+        setSuggestAttempted(true);
         setMessage('');
 
         try {
@@ -359,11 +362,6 @@ function App() {
 
         if (!problemDescription.trim()) {
             setMessage('Please enter a problem description.');
-            return;
-        }
-
-        if (selectedSymptoms.length === 0) {
-            setMessage('Please select at least one symptom.');
             return;
         }
 
@@ -848,6 +846,7 @@ function App() {
         setProblemDescription('');
         setSuggestedSymptoms([]);
         setSelectedSymptoms([]);
+        setSuggestAttempted(false);
         setMediaFiles([]);
 
         setReportId(null);
@@ -1586,8 +1585,9 @@ function App() {
 
                                             {suggestedSymptoms.length === 0 ? (
                                                 <div className="helper-box">
-                                                    No symptoms suggested yet. Select a device and enter a
-                                                    problem description first.
+                                                    {suggestAttempted
+                                                        ? 'No symptoms are configured for this device. You can still submit — the system will route you to an expert.'
+                                                        : 'No symptoms suggested yet. Select a device and enter a problem description first.'}
                                                 </div>
                                             ) : (
                                                 <div className="checkbox-group">

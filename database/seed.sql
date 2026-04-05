@@ -35,4 +35,8 @@ INSERT INTO `replacement_option` VALUES
   (11, 10, 2, 'Smart Air Purifier with WiFi Control', 'Air Purifier', 119.99, 'https://bestbuy.ca/smart-air-purifier',       5),
   (12, 10, 3, 'Compact Room Air Purifier',            'Air Purifier', 69.99,  'https://homedepot.ca/compact-air-purifier',   5);
 
+ INSERT INTO problem_report (UserID, DeviceID, ProblemDescription, Status)
+  VALUES (1, 1, 'test no symptoms', 'submitted');
+
+
 SET FOREIGN_KEY_CHECKS = 1;

@@ -18,11 +18,10 @@ const createReport = async (req, res) => {
         !userId ||
         !deviceId ||
         !problemDescription ||
-        !Array.isArray(symptomIds) ||
-        symptomIds.length === 0
+        !Array.isArray(symptomIds)
     ) {
         return res.status(400).json({
-            message: 'userId, deviceId, problemDescription, and at least one symptomId are required.'
+            message: 'userId, deviceId, and problemDescription are required.'
         });
     }
 

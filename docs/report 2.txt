@@ -83,7 +83,7 @@ Risk Detection
 Risk detection is integrated directly into the Diagnosis Engine rather than implemented as a separate service. High-risk indicators and ambiguity conditions are evaluated at the start of each analysis run, ensuring that unsafe cases are never routed to self-troubleshooting guidance.
 
 Expert Escalation Module
-This module handles cases that require professional assistance. It creates a CONSULTATION record linked to the diagnosis result and the requesting user, and automatically assigns an available expert by querying the EXPERT table for experts with AvailabilityStatus = 'Available'. Consultation status transitions (pending, ongoing, completed) are managed through a dedicated status update endpoint.
+This module handles cases that require professional assistance. It creates a CONSULTATION record linked to the diagnosis result and the requesting user, and automatically assigns an available expert based on two criteria: the expert's ServiceType must match the device category of the reported issue (for example, a Home Appliance issue is matched only to an expert with ServiceType = 'Electrical Appliance Support'), and the expert's AvailabilityStatus must be 'Available'. Among all qualifying experts, the system selects the one with the highest ExpertRating. If no expert matching the required ServiceType is currently available, the backend returns a 404 response. The frontend handles this case by automatically retrying the consultation request using an exponential backoff strategy, with retry intervals of 2, 4, 8, 16, and 32 seconds, up to a maximum of five attempts. The user is shown a progress message during the waiting period. If all retries are exhausted without success, an error message is displayed and a manual retry option is provided. Consultation status transitions (pending, ongoing, completed) are managed through a dedicated status update endpoint.
 
 Merchant Referral Module
 When the diagnosis result suggests replacement, this module retrieves replacement options from the REPLACEMENT_OPTION table that are associated with the matched rule and device. Each option includes the product name, estimated price, and a direct link to the merchant's listing.
@@ -106,6 +106,10 @@ PATCH	/consultation/:id/status	Update consultation status
 GET	/consultation/expert/:expertId	Get consultations assigned to an expert
 GET	/replacement/:resultId	Get replacement options for a diagnosis result
 POST	/feedback	Submit feedback for a diagnosis or consultation
+GET	/consultation/:id	Get full detail of a single consultation
+GET	/consultation/user/:userId	Get all consultations for a user  
+GET	/devices/:deviceId/symptoms	Get symptoms for a device  
+GET	/expert/profile/:expertId	Get expert profile  
 
 2.3 Database Layer
 The database layer is implemented using MySQL and stores all structured data required by the FixPath workflow, including:
@@ -170,7 +174,7 @@ This environment is sufficient for building and testing the FixPath prototype. T
 
 3.2 Proposed Deployment Environment
 FixPath is designed for cloud-based prototype or small-scale deployment.
-  - Platform: PaaS environment (Render)
+  - Platform: PaaS environment (Railway)
   - Frontend Hosting: Static hosting for the React production build
   - Backend Runtime: Node.js server instance
   - Database: Managed MySQL database
@@ -229,8 +233,7 @@ The FixPath database is a relational schema that supports the complete troublesh
     ReportDate,
     ProblemDescription,
     DetectedRiskLevel,
-    Status,
-    MediaURL
+    Status
   )
 
   PROBLEM_REPORT_SYMPTOM(
@@ -436,7 +439,7 @@ As shown in the diagram below,
  
 
 Real-Time Updates
-The system uses periodic polling to refresh consultation data automatically, ensuring that experts receive updated requests without manual refresh.
+The system uses periodic polling to refresh consultation data automatically, ensuring that experts receive updated requests without manual refresh. On the expert side, consultation data is polled every 5 seconds. On the user side, active consultation status is polled every 4 seconds to reflect updates made by the expert.
 
 5.4 Interaction Flow
 The interface follows a linear and structured interaction flow:
@@ -452,7 +455,7 @@ The system design of FixPath satisfies its major non-functional requirements thr
 6.1 Usability
 FixPath achieves usability through a structured, step-by-step interaction model that guides users from problem submission to diagnosis and next-action selection.
 The interface reduces cognitive load by avoiding technical terminology and presenting outcomes in clear, plain language. In addition, a keyword-based symptom suggestion module assists users in identifying relevant symptoms based on their problem description, minimizing manual effort and improving accuracy.
-This design ensures that even non-technical users can complete the full troubleshooting process without confusion or prior expertise.
+This design ensures that even non-technical users can complete the full troubleshooting process without confusion or prior expertise. When no expert is immediately available, the system handles the waiting period transparently through automatic retries with user-visible progress feedback, avoiding abrupt error states.
 
 6.2 Performance
 Performance is achieved using a lightweight rule-based Diagnosis Engine that evaluates only the subset of decision rules associated with the selected device.
@@ -588,7 +591,7 @@ As shown in the diagram below,
 Sequence Diagram 2: Expert Consultation Process
 This sequence diagram illustrates how the system handles cases that require professional assistance.
 The process begins when the user selects the option to request expert consultation after receiving a diagnosis result. The frontend sends a request to the backend, which creates a new Consultation record linked to the corresponding diagnosis result and user.
-The backend then queries the database to identify an available expert based on availability status. Once an expert is selected, the consultation is assigned and stored.
+The backend then queries the database to identify a suitable expert based on two conditions: the expert's ServiceType must correspond to the device category of the reported issue, and the expert's AvailabilityStatus must be 'Available'. Among all qualifying experts, the system selects the one with the highest ExpertRating. If no matching expert is available, the backend returns a 404 response, and the frontend automatically retries the request using exponential backoff, up to five attempts. Once an expert is successfully selected, the consultation is assigned and stored.
 Instead of using real-time push notifications, the expert interface retrieves consultation requests through periodic polling, where the frontend automatically fetches updated consultation data at regular intervals. This ensures that newly assigned consultations are visible without requiring manual refresh.
 The expert reviews the consultation details, including the original problem report, diagnosis result, and uploaded media. The expert can then accept the request and update the consultation status (e.g., ongoing or completed).
 The backend records status updates and returns confirmation to the frontend, which displays updated information to both the expert and the user.
