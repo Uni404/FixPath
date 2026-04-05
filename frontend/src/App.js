@@ -49,6 +49,8 @@ function App() {
     const [loading, setLoading] = useState(false);
     const [suggesting, setSuggesting] = useState(false);
     const [consultationLoading, setConsultationLoading] = useState(false);
+    const [consultationError, setConsultationError] = useState('');
+    const [isRetrying, setIsRetrying] = useState(false);
 
     const [role, setRole] = useState(null);
     const [profile, setProfile] = useState(null);
@@ -97,6 +99,8 @@ function App() {
 
     const fileInputRef = useRef(null);
     const consultationDetailRef = useRef(null);
+    const retryTimerRef = useRef(null);
+    const retryCountRef = useRef(0);
 
     useEffect(() => {
         if (role !== 'user') return;
@@ -156,9 +160,14 @@ function App() {
 
     }, [consultation?.consultationId, consultation?.consultationStatus]);
 
+    useEffect(() => {
+        return () => clearRetryTimer();
+    }, [clearRetryTimer]);
 
 
     const resetAfterDeviceChange = () => {
+        clearRetryTimer();
+        setConsultationError('');
         setSuggestedSymptoms([]);
         setSelectedSymptoms([]);
         setDiagnosis(null);
@@ -407,6 +416,8 @@ function App() {
             return;
         }
 
+        clearRetryTimer(); // cancel any pending retry before fresh attempt
+
         try {
             setConsultationLoading(true);
 
@@ -418,17 +429,24 @@ function App() {
             });
 
             setConsultation(res.data);
+            setConsultationError('');
             setMessage(
                 res.data.reused
                     ? 'Existing consultation loaded.'
                     : 'Consultation created successfully.'
             );
         } catch (error) {
-            setMessage(
+            const errMsg =
                 error?.response?.data?.message ||
                 error?.response?.data?.error ||
-                'Failed to create consultation.'
-            );
+                'Failed to create consultation.';
+            setMessage(errMsg);
+            if (error?.response?.status === 404) {
+                retryCountRef.current = 0;
+                scheduleConsultationRetry(diagnosis.resultId, Number(profile.id));
+            } else {
+                setConsultationError(errMsg);
+            }
         } finally {
             setConsultationLoading(false);
         }
@@ -461,6 +479,70 @@ function App() {
 
         window.open(link, '_blank');
     };
+
+    const clearRetryTimer = useCallback(() => {
+        if (retryTimerRef.current) {
+            clearTimeout(retryTimerRef.current);
+            retryTimerRef.current = null;
+        }
+        retryCountRef.current = 0;
+        setIsRetrying(false);
+    }, []);
+
+    const scheduleConsultationRetry = useCallback((resultId, userId) => {
+        const MAX_RETRIES = 5;
+
+        // Guard: cancel any existing timer before scheduling a new one
+        if (retryTimerRef.current) {
+            clearTimeout(retryTimerRef.current);
+            retryTimerRef.current = null;
+        }
+
+        const attempt = retryCountRef.current + 1;
+
+        if (attempt > MAX_RETRIES) {
+            retryCountRef.current = 0;
+            setIsRetrying(false);
+            setConsultationError('No available expert at the moment. Please try again later.');
+            return;
+        }
+
+        // Increment immediately — not inside the callback — so any
+        // concurrent call reads the correct count during the wait window
+        retryCountRef.current = attempt;
+
+        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s, 16s, 32s
+        setIsRetrying(true);
+        setConsultationError(`Waiting for an available expert... (attempt ${attempt} of 5)`);
+
+        retryTimerRef.current = setTimeout(async () => {
+            retryTimerRef.current = null; // clear before async work so guard resets cleanly
+
+            try {
+                const res = await createConsultation({
+                    resultId,
+                    userId,
+                    requestType: 'video',
+                    consultationNotes: 'Need expert help for this issue.'
+                });
+                retryCountRef.current = 0;
+                setIsRetrying(false);
+                setConsultation(res.data);
+                setConsultationError('');
+                setMessage('Consultation created successfully.');
+            } catch (err) {
+                if (err?.response?.status === 404) {
+                    scheduleConsultationRetry(resultId, userId);
+                } else {
+                    retryCountRef.current = 0;
+                    setIsRetrying(false);
+                    const msg = err?.response?.data?.message || 'Failed to create consultation.';
+                    setConsultationError(msg);
+                    setMessage(msg);
+                }
+            }
+        }, delay);
+    }, []);
 
 
 
@@ -1548,8 +1630,9 @@ function App() {
                                                 type="button"
                                                 className="secondary-btn"
                                                 onClick={handleConsultation}
+                                                disabled={consultationLoading}
                                             >
-                                                Request Expert Consultation
+                                                {consultationLoading ? 'Requesting...' : 'Request Expert Consultation'}
                                             </button>
 
                                             <button
@@ -1560,6 +1643,25 @@ function App() {
                                                 View Replacement Options
                                             </button>
                                         </div>
+
+                                        {consultationError && (
+                                            <div style={{ marginTop: '10px', padding: '12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px' }}>
+                                                <p style={{ margin: '0 0 8px', color: '#b91c1c', fontWeight: '600' }}>
+                                                    {consultationError}
+                                                </p >
+                                                <p style={{ margin: '0 0 8px', color: '#374151', fontSize: '14px' }}>
+                                                    Please wait for an expert to become available and try again.
+                                                </p >
+                                                <button
+                                                    type="button"
+                                                    className="secondary-btn"
+                                                    onClick={handleConsultation}
+                                                    disabled={consultationLoading}
+                                                >
+                                                    {consultationLoading ? 'Retrying...' : 'Retry'}
+                                                </button>
+                                            </div>
+                                        )}
 
 
                                         <div className="card" style={{ marginTop: '16px' }}>
