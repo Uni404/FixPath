@@ -531,7 +531,7 @@ function App() {
         if (attempt > MAX_RETRIES) {
             retryCountRef.current = 0;
             setIsRetrying(false);
-            setConsultationError('No available expert at the moment. Please try again later.');
+            setConsultationError('No available expert found. You can try again manually.');
             return;
         }
 
@@ -1764,7 +1764,7 @@ function App() {
                                                             ? `Please wait ${Math.floor(retryCooldownSeconds / 60)}:${String(retryCooldownSeconds % 60).padStart(2, '0')} before retrying.`
                                                             : 'Please try again manually.'}
                                                 </p>
-                                                {manualRetryCount < MAX_MANUAL_RETRIES && (
+                                                {!isRetrying && manualRetryCount < MAX_MANUAL_RETRIES && (
                                                     <button
                                                         type="button"
                                                         className="secondary-btn"
