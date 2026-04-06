@@ -52,6 +52,7 @@ function App() {
     const [consultationLoading, setConsultationLoading] = useState(false);
     const [consultationError, setConsultationError] = useState('');
     const [isRetrying, setIsRetrying] = useState(false);
+    const [manualRetryCount, setManualRetryCount] = useState(0);
 
     const [role, setRole] = useState(null);
     const [profile, setProfile] = useState(null);
@@ -102,6 +103,7 @@ function App() {
     const consultationDetailRef = useRef(null);
     const retryTimerRef = useRef(null);
     const retryCountRef = useRef(0);
+    const MAX_MANUAL_RETRIES = 3;
 
     const clearRetryTimer = useCallback(() => {
         if (retryTimerRef.current) {
@@ -423,6 +425,12 @@ function App() {
             return;
         }
 
+        if (manualRetryCount >= MAX_MANUAL_RETRIES) {
+            setConsultationError('No available expert at the moment. Please try again later.');
+            return;
+        }
+
+        setManualRetryCount(prev => prev + 1);
         clearRetryTimer(); // cancel any pending retry before fresh attempt
 
         try {
@@ -435,6 +443,7 @@ function App() {
                 consultationNotes: 'Need expert help for this issue.'
             });
 
+            setManualRetryCount(0);
             setConsultation(res.data);
             setConsultationError('');
             setMessage(
@@ -1730,14 +1739,16 @@ function App() {
                                                 <p style={{ margin: '0 0 8px', color: '#374151', fontSize: '14px' }}>
                                                     {isRetrying ? 'The system is retrying automatically.' : 'Please try again manually.'}
                                                 </p>
-                                                <button
-                                                    type="button"
-                                                    className="secondary-btn"
-                                                    onClick={handleConsultation}
-                                                    disabled={consultationLoading}
-                                                >
-                                                    {consultationLoading ? 'Retrying...' : 'Retry'}
-                                                </button>
+                                                {manualRetryCount < MAX_MANUAL_RETRIES && (
+                                                    <button
+                                                        type="button"
+                                                        className="secondary-btn"
+                                                        onClick={handleConsultation}
+                                                        disabled={consultationLoading}
+                                                    >
+                                                        {consultationLoading ? 'Retrying...' : `Retry (${MAX_MANUAL_RETRIES - manualRetryCount} left)`}
+                                                    </button>
+                                                )}
                                             </div>
                                         )}
 
