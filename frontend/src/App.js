@@ -53,6 +53,8 @@ function App() {
     const [consultationError, setConsultationError] = useState('');
     const [isRetrying, setIsRetrying] = useState(false);
     const [manualRetryCount, setManualRetryCount] = useState(0);
+    const [retryCooldownSeconds, setRetryCooldownSeconds] = useState(0);
+    const cooldownTimerRef = useRef(null);
 
     const [role, setRole] = useState(null);
     const [profile, setProfile] = useState(null);
@@ -109,6 +111,10 @@ function App() {
         if (retryTimerRef.current) {
             clearTimeout(retryTimerRef.current);
             retryTimerRef.current = null;
+        }
+        if (cooldownTimerRef.current) {
+            clearInterval(cooldownTimerRef.current);
+            cooldownTimerRef.current = null;
         }
         retryCountRef.current = 0;
         setIsRetrying(false);
@@ -426,7 +432,22 @@ function App() {
         }
 
         if (manualRetryCount >= MAX_MANUAL_RETRIES) {
-            setConsultationError('No available expert at the moment. Please try again later.');
+            if (retryCooldownSeconds === 0) {
+                const COOLDOWN = 5 * 60;
+                setRetryCooldownSeconds(COOLDOWN);
+                setConsultationError('No available expert at the moment. Please try again in 5 minutes.');
+                cooldownTimerRef.current = setInterval(() => {
+                    setRetryCooldownSeconds(prev => {
+                        if (prev <= 1) {
+                            clearInterval(cooldownTimerRef.current);
+                            setManualRetryCount(0);
+                            setConsultationError('');
+                            return 0;
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+            }
             return;
         }
 
@@ -1737,7 +1758,11 @@ function App() {
                                                     {consultationError}
                                                 </p>
                                                 <p style={{ margin: '0 0 8px', color: '#374151', fontSize: '14px' }}>
-                                                    {isRetrying ? 'The system is retrying automatically.' : 'Please try again manually.'}
+                                                    {isRetrying
+                                                        ? 'The system is retrying automatically.'
+                                                        : retryCooldownSeconds > 0
+                                                            ? `Please wait ${Math.floor(retryCooldownSeconds / 60)}:${String(retryCooldownSeconds % 60).padStart(2, '0')} before retrying.`
+                                                            : 'Please try again manually.'}
                                                 </p>
                                                 {manualRetryCount < MAX_MANUAL_RETRIES && (
                                                     <button
